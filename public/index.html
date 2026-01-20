@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Inventario v1.0</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="desktop">
+        <div class="window" id="main-window">
+            <div class="title-bar">
+                <div class="title-bar-text">Sistema de Inventario - [Menú Principal]</div>
+                <div class="title-bar-controls">
+                    <button aria-label="Minimize"></button>
+                    <button aria-label="Maximize"></button>
+                    <button aria-label="Close"></button>
+                </div>
+            </div>
+            <div class="window-body">
+                <div class="menu-bar">
+                    <button class="menu-item" onclick="showSection('dashboard')">Archivo</button>
+                    <button class="menu-item" onclick="showSection('products')">Productos</button>
+                    <button class="menu-item" onclick="showSection('inventory')">Inventario</button>
+                    <button class="menu-item" onclick="showSection('sales')">Ventas</button>
+                    <button class="menu-item" onclick="showSection('suppliers')">Proveedores</button>
+                    <button class="menu-item" onclick="showSection('reports')">Reportes</button>
+                    <button class="menu-item" onclick="showSection('help')">Ayuda</button>
+                </div>
+
+                <div id="content-area" class="content-area">
+                    <!-- Dynamic Content Loaded Here -->
+                    <div id="dashboard-view">
+                        <h3>Bienvenido al Sistema</h3>
+                        <p>Seleccione una opción del menú para comenzar.</p>
+                        <hr>
+                        <div class="stats-grid">
+                            <div class="stat-box">
+                                <span>Productos Bajo Stock</span>
+                                <strong id="stat-low-stock">0</strong>
+                            </div>
+                            <div class="stat-box">
+                                <span>Total Productos</span>
+                                <strong id="stat-total-products">0</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="status-bar">
+                    <p class="status-bar-field">Estado: Listo</p>
+                    <p class="status-bar-field">Usuario: Admin</p>
+                    <p class="status-bar-field">CPU: 5%</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+
+</html>

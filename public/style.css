@@ -1,0 +1,196 @@
+/* refined-retro.css - Windows 98 Style */
+:root {
+    --bg-color: #008080;
+    /* Classic Teal */
+    --window-bg: #c0c0c0;
+    --text-color: #000000;
+    --header-bg: #000080;
+    --header-text: #ffffff;
+    --button-highlight: #ffffff;
+    --button-shadow: #808080;
+    --border-dark: #404040;
+}
+
+body {
+    background-color: var(--bg-color);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    /* More modern font for readability but keeps the vibe */
+    margin: 0;
+    padding: 20px;
+    height: 100vh;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.window {
+    background-color: var(--window-bg);
+    border: 2px solid;
+    border-color: var(--button-highlight) var(--border-dark) var(--border-dark) var(--button-highlight);
+    box-shadow: 1px 1px 0 #000;
+    width: 90vw;
+    /* Maximized width */
+    height: 90vh;
+    /* Maximized height */
+    display: flex;
+    flex-direction: column;
+}
+
+.title-bar {
+    background: linear-gradient(90deg, var(--header-bg), #1084d0);
+    padding: 3px 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.title-bar-text {
+    color: var(--header-text);
+    font-weight: bold;
+    font-size: 14px;
+    font-family: 'MS Sans Serif', sans-serif;
+    letter-spacing: 0.5px;
+}
+
+.title-bar-controls button {
+    width: 16px;
+    height: 14px;
+    background-color: var(--window-bg);
+    border: 1px solid;
+    border-color: var(--button-highlight) var(--button-shadow) var(--button-shadow) var(--button-highlight);
+    margin-left: 2px;
+    font-size: 8px;
+    line-height: 8px;
+    font-weight: bold;
+}
+
+.window-body {
+    padding: 10px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.menu-bar {
+    display: flex;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--button-shadow);
+    padding-bottom: 2px;
+}
+
+.menu-item {
+    background: var(--window-bg);
+    border: 2px solid;
+    border-color: var(--button-highlight) var(--button-shadow) var(--button-shadow) var(--button-highlight);
+    /* 3D effect */
+    padding: 4px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-right: 5px;
+}
+
+.menu-item:active {
+    border-color: var(--button-shadow) var(--button-highlight) var(--button-highlight) var(--button-shadow);
+    transform: translate(1px, 1px);
+}
+
+.content-area {
+    flex-grow: 1;
+    background-color: #fff;
+    border: 2px solid;
+    border-color: var(--button-shadow) var(--button-highlight) var(--button-highlight) var(--button-shadow);
+    padding: 15px;
+    overflow-y: auto;
+}
+
+.status-bar {
+    margin-top: 10px;
+    border: 2px solid;
+    border-color: var(--button-shadow) var(--button-highlight) var(--button-highlight) var(--button-shadow);
+    display: flex;
+    gap: 10px;
+    padding: 2px 5px;
+    background-color: var(--window-bg);
+}
+
+.status-bar-field {
+    border: 1px solid;
+    border-color: var(--button-shadow) var(--button-highlight) var(--button-highlight) var(--button-shadow);
+    padding: 2px 5px;
+    margin: 0;
+    font-size: 12px;
+    flex-grow: 1;
+}
+
+/* Forms and Inputs */
+input,
+select,
+textarea {
+    border: 2px solid;
+    border-color: var(--button-shadow) var(--button-highlight) var(--button-highlight) var(--button-shadow);
+    padding: 3px;
+    background: #fff;
+    width: 100%;
+    /* Full width in grid */
+    box-sizing: border-box;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+button.retro-btn {
+    background-color: var(--window-bg);
+    border: 2px solid;
+    border-color: var(--button-highlight) var(--button-shadow) var(--button-shadow) var(--button-highlight);
+    padding: 4px 12px;
+    cursor: pointer;
+}
+
+button.retro-btn:active {
+    border-color: var(--button-shadow) var(--button-highlight) var(--button-highlight) var(--button-shadow);
+    transform: translate(1px, 1px);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.stat-box {
+    border: 2px solid;
+    border-color: var(--button-highlight) var(--button-shadow) var(--button-shadow) var(--button-highlight);
+    padding: 10px;
+    background-color: var(--window-bg);
+    text-align: center;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+th,
+td {
+    border: 1px solid var(--button-shadow);
+    padding: 4px;
+    text-align: left;
+}
+
+th {
+    background-color: var(--window-bg);
+    font-weight: bold;
+}

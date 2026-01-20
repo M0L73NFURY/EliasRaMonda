@@ -1,0 +1,98 @@
+Funcionamiento:
+
+
+    Registro y gestipn de productos: El sistema debe permitir crear, editar, eliminar y consultar productos con detalles como c�digo, nombre, categor�a, precio y niveles de stock m�nimo y m�ximo, para asegurar un control preciso y actualizado del inventario.
+    Control y registro de movimientos de inventario: Debe gestionar y actualizar autom�ticamente cada entrada, salida, devoluci�n o ajuste de productos en el inventario, garantizando que los datos est�n siempre al d�a y reflejen la realidad del almac�n.
+    Gesti�n de proveedores: Ser� necesario mantener un registro detallado de proveedores, incluyendo su informaci�n de contacto y los productos que suministran, permitiendo asociar productos con sus respectivos proveedores para facilitar la gesti�n y seguimiento.
+    Alertas y notificaciones autom�ticas: El sistema debe emitir avisos cuando el stock est� por debajo del nivel m�nimo o cuando los productos est�n pr�ximos a vencer, ayudando a prevenir desabastecimientos o p�rdidas por caducidad.
+    An�lisis predictivo: Usar� datos hist�ricos para estimar la demanda futura, calcular el punto de pedido y definir cantidades �ptimas de reorden, optimizando la gesti�n y evitando excesos o faltantes en el inventario.
+    Generaci�n de reportes: Debe producir reportes detallados sobre el estado actual del inventario, movimientos en per�odos definidos, rotaci�n de productos y an�lisis de ventas, facilitando la toma de decisiones estrat�gicas.
+    Administraci�n de usuarios: Incluir� funcionalidad para registrar, autenticar y controlar el acceso de usuarios seg�n roles, asegurando que s�lo el personal autorizado pueda realizar acciones espec�ficas.
+
+
+
+
+
+El sistema debe usar una base de datos para el registro y almacenamiento de los datos, para la base de datos utiliza el siguiente schema como plantilla (puedes tomar libertad creativa para modificarlo donde lo veas necesario):
+
+
+Table productos {
+  codigo integer [primary key]
+  categoria varchar
+  nombre varchar
+  marca varchar
+  id_proveedor integer
+  stock_minimo integer
+  precio_compra decimal(10,2)
+  precio_venta decimal(10,2)
+  estado boolean
+}
+
+Table inventario {
+  id integer [primary key, increment]
+  codigo_producto integer
+  cantidad integer
+  lote varchar
+  fecha_vencimiento date
+}
+
+Table proveedores {
+  id integer [primary key, increment]
+  nombre varchar
+  rif varchar
+  telefono varchar
+  email varchar
+  direccion text
+  activo boolean
+}
+
+Table compras {
+  id integer [primary key, increment]
+  id_proveedor integer
+  fecha_compra datetime
+  numero_factura varchar
+  total decimal(10,2)
+  estado varchar // 'pendiente', 'completada', 'cancelada'
+}
+
+Table detalle_compras {
+  id integer [primary key, increment]
+  id_compra integer
+  codigo_producto integer
+  cantidad integer
+  precio_compra decimal(10,2)
+  lote varchar
+  fecha_vencimiento date
+}
+
+Table ventas {
+  id integer [primary key, increment]
+  fecha_venta datetime
+  total decimal(10,2)
+  tipo_pago varchar // 'efectivo', 'tarjeta', 'transferencia'
+  estado varchar // 'completada', 'cancelada'
+}
+
+Table detalle_ventas {
+  id integer [primary key, increment]
+  id_venta integer
+  codigo_producto integer
+  cantidad integer
+  precio_venta decimal(10,2)
+}
+
+// Relaciones
+Ref: "proveedores"."id" < "compras"."id_proveedor"
+Ref: "compras"."id" < "detalle_compras"."id_compra"
+Ref: "productos"."codigo" < "detalle_compras"."codigo_producto"
+Ref: "productos"."codigo" < "inventario"."codigo_producto"
+Ref: "ventas"."id" < "detalle_ventas"."id_venta"
+Ref: "productos"."codigo" < "detalle_ventas"."codigo_producto"
+Ref: "proveedores"."id" < "productos"."id_proveedor"
+
+
+Visualmente:
+
+quiero que el sistema se vea mas anticuado estilo sistema 1999
+
+
