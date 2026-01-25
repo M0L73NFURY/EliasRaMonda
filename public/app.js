@@ -39,7 +39,7 @@ async function loadDashboard() {
                     <strong id="stat-low-stock">Loading...</strong>
                 </div>
                  <div class="stat-box">
-                    <span>Ventas Hoy</span>
+                    <span>Ventas Hoy (Transacciones)</span>
                     <strong id="stat-sales-today">0</strong>
                 </div>
             </div>
@@ -56,10 +56,19 @@ async function loadDashboard() {
 
 async function updateDashboardStats() {
     try {
-        const res = await fetch(`${API_URL}/inventory/alerts`);
-        const alerts = await res.json();
+        // Low Stock
+        const resAlerts = await fetch(`${API_URL}/inventory/alerts`);
+        const alerts = await resAlerts.json();
         document.getElementById('stat-low-stock').innerText = alerts.length;
 
+        // Sales Today
+        const resSales = await fetch(`${API_URL}/sales/today`);
+        const salesData = await resSales.json();
+        // Now using count
+        const salesCount = salesData.count || 0;
+        document.getElementById('stat-sales-today').innerText = salesCount;
+
+        // Render Alerts List
         const list = document.getElementById('alerts-list');
         list.innerHTML = '';
         alerts.forEach(a => {
@@ -190,6 +199,19 @@ async function deleteProduct(id) {
         await fetch(`${API_URL}/products/${id}`, { method: 'DELETE' });
         loadProducts();
     }
+}
+
+// Helper for Options
+async function generateProductOptions() {
+    const res = await fetch(`${API_URL}/products`);
+    const products = await res.json();
+    if (products.length === 0) return '<option value="" disabled>No hay productos registrados</option>';
+
+    let options = '<option value="" selected disabled>Seleccione un producto...</option>';
+    products.forEach(p => {
+        options += `<option value="${p.codigo}">[${p.codigo}] - ${p.nombre} (Stock: ${p.total_stock /* Prop hack */})</option>`;
+    });
+    return options;
 }
 
 
@@ -329,14 +351,18 @@ async function loadInventory() {
     });
 }
 
-function showAddInventoryForm() {
+async function showAddInventoryForm() {
+    const productOptions = await generateProductOptions();
+
     const html = `
         <h3>Entrada de Inventario</h3>
         <form onsubmit="addInventory(event)">
              <div class="form-grid">
                 <div class="form-group">
-                    <label>Código Producto:</label> 
-                    <input type="number" name="codigo_producto" required>
+                    <label>Producto:</label> 
+                    <select name="codigo_producto" required class="retro-select">
+                        ${productOptions}
+                    </select>
                 </div>
                  <div class="form-group">
                     <label>Cantidad:</label> 
@@ -375,6 +401,8 @@ async function addInventory(e) {
 
 // --- Sales ---
 async function loadSales() {
+    const productOptions = await generateProductOptions();
+
     const html = `
         <h3>Ventas</h3>
         <div style="margin-bottom: 15px;">
@@ -383,8 +411,10 @@ async function loadSales() {
                 <h4>Nueva Venta</h4>
                 <div class="form-grid">
                      <div class="form-group">
-                        <label>Código Producto:</label>
-                        <input type="number" id="sale-prod-code" placeholder="Ingrese código">
+                        <label>Producto:</label>
+                        <select id="sale-prod-code" class="retro-select">
+                            ${productOptions}
+                        </select>
                     </div>
                      <div class="form-group">
                         <label>Cantidad:</label>
