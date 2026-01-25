@@ -13,6 +13,22 @@ router.get('/', (req, res) => {
     }
 });
 
+// GET sales for today (Daily Counter)
+router.get('/today', (req, res) => {
+    try {
+        // SQLite 'now', 'localtime', 'start of day' logic
+        const stmt = db.prepare(`
+            SELECT COUNT(*) as count 
+            FROM ventas 
+            WHERE date(fecha_venta) = date('now', 'localtime')
+        `);
+        const result = stmt.get();
+        res.json({ count: result.count || 0 });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // POST new sale (Handle Transaction + Inventory Update)
 router.post('/', (req, res) => {
     // Expected body: { total, tipo_pago, items: [{ codigo_producto, cantidad, precio_venta }] }

@@ -136,6 +136,12 @@ textarea {
     box-sizing: border-box;
 }
 
+.retro-select {
+    height: 28px;
+    /* Consistent height */
+    font-family: inherit;
+}
+
 .form-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
