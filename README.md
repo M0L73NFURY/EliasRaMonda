@@ -1,4 +1,4 @@
-# Sistema de Inventario Retro (v3.0)
+# Sistema de Inventario Retro (v4.1)
 
 Un sistema de gestión de inventario completo con una estética retro de Windows 98, diseñado para pequeñas y medianas empresas.
 
