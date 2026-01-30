@@ -1,15 +1,25 @@
-# Sistema de Inventario Retro (v4.1)
+# Sistema de Inventario Retro (v5.0)
 
-Un sistema de gestión de inventario completo con una estética retro de Windows 98, diseñado para pequeñas y medianas empresas.
+Un sistema de gestión de inventario completo con una estética retro de Windows 98, diseñado para pequeñas y medianas empresas. Esta versión incluye análisis avanzado de datos, gestión de lotes y predicción de stock.
 
 ## 📋 Características
 
 - **Gestión de Productos**: Alta, baja y modificación de productos.
-- **Control de Inventario**: Entradas de stock y alertas automáticas de nivel mínimo.
-- **Punto de Venta (POS)**: Módulo de ventas integrado que descuenta stock automáticamente.
+- **Control de Inventario Detallado**: 
+    - Rastreo por lotes y fechas de vencimiento.
+    - Alertas visuales de caducidad (Semáforo: Amarillo/Naranja/Rojo).
+    - Entradas de stock granulares.
+- **Punto de Venta (POS)**: 
+    - Descuento de stock inteligente basado en **FEFO** (First-Expired, First-Out).
+    - Prioriza automáticamente la venta de productos próximos a vencer.
+- **Módulo de Reportes Avanzados**:
+    - **Ventas**: Reportes por rango de fechas.
+    - **Comparativas**: Análisis de crecimiento entre dos periodos.
+    - **Proveedores**: Historial de mejores precios y productos por proveedor.
+    - **Predicción (s,S)**: Algoritmo de reabastecimiento que sugiere cantidades de compra basadas en demanda histórica.
 - **Gestión de Proveedores**: Base de datos de contacto de proveedores.
-- **Dashboard en Tiempo Real**: Visualización de alertas y total de ventas del día.
-- **Estética Retro**: Interfaz nostálgica pero funcional y responsiva.
+- **Dashboard en Tiempo Real**: Visualización de alertas de stock bajo, vencimientos y métricas diarias.
+- **Estética Retro**: Interfaz icónica estilo 90s con respuesta visual activa (botones 3D).
 
 ## 🚀 Requisitos de Instalación
 
@@ -43,11 +53,19 @@ Sigue estos pasos para instalar y correr el programa:
 
 ## 📦 Estructura del Proyecto
 
-- `server.js`: El servidor principal.
-- `database.js`: Configuración de la base de datos (SQLite).
-- `public/`: Archivos del Frontend (HTML, CSS, JS).
-- `routes/`: Endpoints de la API para cada módulo.
+- `server.js`: El servidor principal Express.
+- `database.js`: Configuración de la base de datos (SQLite) y schemas.
+- `public/`: 
+    - `app.js`: Lógica del frontend (SPA).
+    - `style.css`: Estilos retro.
+    - `index.html`: Punto de entrada.
+- `routes/`: Endpoints de la API:
+    - `inventory.js`: Lógica de stock y alertas.
+    - `sales.js`: Procesamiento de ventas y lógica FEFO.
+    - `products.js`: CRUD de productos.
+    - `suppliers.js`: CRUD de proveedores.
+    - `reports.js`: Analíticas y predicciones.
 
 ## 🆘 Soporte
 
-Si encuentras algún error o necesitas ayuda, consulta la sección "Ayuda" dentro de la aplicación o contacta al desarrollador.
+Si encuentras algún error o necesitas ayuda, consulta la sección "Ayuda" dentro de la aplicación.
