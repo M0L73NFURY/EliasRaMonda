@@ -90,9 +90,13 @@ body {
     margin-right: 5px;
 }
 
-.menu-item:active {
+.menu-item:active,
+.menu-item.active {
     border-color: var(--button-shadow) var(--button-highlight) var(--button-highlight) var(--button-shadow);
-    transform: translate(1px, 1px);
+    /* Depressed look */
+    background: #c0c0c0;
+    /* Slightly darker/same as bg but valid for "pressed" visual if desired, or can use repeating-linear-gradient for "dithered" look common in win98 selected items */
+    font-weight: bold;
 }
 
 .content-area {

@@ -19,6 +19,7 @@ app.use('/api/products', productsRoutes);
 app.use('/api/suppliers', suppliersRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/sales', require('./routes/sales'));
+app.use('/api/reports', require('./routes/reports'));
 
 // Test route
 app.get('/api/health', (req, res) => {
