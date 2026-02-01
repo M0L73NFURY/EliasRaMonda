@@ -3,15 +3,30 @@
 const API_URL = 'http://localhost:3001/api';
 
 // --- Navigation ---
+// --- Navigation ---
 function showSection(sectionId) {
-    const contentArea = document.getElementById('content-area');
+    if (!window.currentUser) {
+        showLogin();
+        return;
+    }
 
-    // Clear current content
+    const role = window.currentUser.role;
+
+    // Role-Based Access Control
+    if (role === 'vendor') {
+        const allowed = ['sales', 'products', 'help'];
+        if (!allowed.includes(sectionId)) {
+            alert('Acceso Denegado: Permisos insuficientes.');
+            return;
+        }
+    }
+
+    const contentArea = document.getElementById('content-area');
     contentArea.innerHTML = '';
 
     // Update styling for active menu
     document.querySelectorAll('.menu-item').forEach(btn => btn.classList.remove('active'));
-    // Find button that calls this section. 
+    // Find button
     const map = {
         'dashboard': 'Inicio',
         'products': 'Productos',
@@ -28,21 +43,14 @@ function showSection(sectionId) {
         if (btn) btn.classList.add('active');
     }
 
-    if (sectionId === 'dashboard') {
-        loadDashboard();
-    } else if (sectionId === 'products') {
-        loadProducts();
-    } else if (sectionId === 'inventory') {
-        loadInventory();
-    } else if (sectionId === 'suppliers') {
-        loadSuppliers();
-    } else if (sectionId === 'sales') {
-        loadSales();
-    } else if (sectionId === 'reports') {
-        loadReports();
-    } else if (sectionId === 'help') {
-        loadHelp();
-    }
+    // Load Section
+    if (sectionId === 'dashboard') loadDashboard();
+    else if (sectionId === 'products') loadProducts();
+    else if (sectionId === 'inventory') loadInventory();
+    else if (sectionId === 'suppliers') loadSuppliers();
+    else if (sectionId === 'sales') loadSales();
+    else if (sectionId === 'reports') loadReports();
+    else if (sectionId === 'help') loadHelp();
 }
 
 // --- Dashboard ---
@@ -124,10 +132,12 @@ async function generateProductOptions() {
 }
 
 async function loadProducts() {
+    const isVendor = window.currentUser && window.currentUser.role === 'vendor';
+
     const html = `
         <h3>Gestión de Productos</h3>
         <div class="toolbar" style="display:flex; gap:10px; margin-bottom:15px; align-items:center;">
-            <button class="retro-btn" onclick="showProductForm()">+ Nuevo Producto</button>
+            ${!isVendor ? '<button class="retro-btn" onclick="showProductForm()">+ Nuevo Producto</button>' : ''}
             <input type="text" id="product-search" placeholder="Buscar..." onkeyup="filterProducts()" style="flex:2;">
             <select id="product-sort" onchange="sortProducts()" style="width: 130px;">
                 <option value="id">ID</option>
@@ -143,11 +153,11 @@ async function loadProducts() {
                     <th>Categoría</th>
                     <th>Precio Venta</th>
                     <th>Stock Mín</th>
-                    <th>Acciones</th>
+                    ${!isVendor ? '<th>Acciones</th>' : ''}
                 </tr>
             </thead>
             <tbody id="products-table-body">
-                <tr><td colspan="6">Cargando...</td></tr>
+                <tr><td colspan="${isVendor ? 5 : 6}">Cargando...</td></tr>
             </tbody>
         </table>
     `;
@@ -161,24 +171,32 @@ async function loadProducts() {
 function renderProducts(products) {
     const tbody = document.getElementById('products-table-body');
     tbody.innerHTML = '';
+    const isVendor = window.currentUser && window.currentUser.role === 'vendor';
 
     if (products.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6">No se encontraron productos.</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="${isVendor ? 5 : 6}">No se encontraron productos.</td></tr>`;
         return;
     }
 
     products.forEach(p => {
         const tr = document.createElement('tr');
+
+        let actionsHtml = '';
+        if (!isVendor) {
+            actionsHtml = `
+            <td>
+                <button class="retro-btn" onclick='showProductForm(${JSON.stringify(p)})'>Editar</button>
+                <button class="retro-btn" onclick="deleteProduct(${p.codigo})">X</button>
+            </td>`;
+        }
+
         tr.innerHTML = `
             <td>${p.codigo}</td>
             <td>${p.nombre}</td>
             <td>${p.categoria}</td>
             <td>$${p.precio_venta}</td>
             <td>${p.stock_minimo}</td>
-            <td>
-                <button class="retro-btn" onclick='showProductForm(${JSON.stringify(p)})'>Editar</button>
-                <button class="retro-btn" onclick="deleteProduct(${p.codigo})">X</button>
-            </td>
+            ${actionsHtml}
         `;
         tbody.appendChild(tr);
     });
@@ -681,8 +699,19 @@ async function processSale() {
         if (result.error) {
             alert('Error: ' + result.error);
         } else {
-            alert('Venta procesada con éxito! ID: ' + result.id);
-            loadSales(); // Reset
+            // alert('Venta procesada con éxito! ID: ' + result.id);
+            // Show Receipt Option
+            const container = document.getElementById('content-area');
+            container.innerHTML = `
+                <div style="text-align:center; padding: 50px;">
+                    <h3>¡Venta Completada!</h3>
+                    <p>ID de Transacción: ${result.id}</p>
+                    <div style="margin-top:20px;">
+                        <button class="retro-btn" onclick="window.open('${API_URL}/sales/${result.id}/receipt', '_blank')">🖨️ Imprimir Recibo</button>
+                        <button class="retro-btn" onclick="loadSales()">Nueva Venta</button>
+                    </div>
+                </div>
+            `;
         }
     } catch (e) {
         alert('Error de conexión');
@@ -899,8 +928,76 @@ function loadHelp() {
     document.getElementById('content-area').innerHTML = html;
 }
 
+// --- Login & Init ---
+function checkSession() {
+    if (!window.currentUser) {
+        showLogin();
+    } else {
+        if (window.currentUser.role === 'vendor') {
+            showSection('sales');
+        } else {
+            showSection('dashboard');
+        }
+    }
+}
+
+function showLogin() {
+    const html = `
+        <div style="max-width:300px; margin: 100px auto; border: 2px solid gray; padding: 20px; background: #c0c0c0; box-shadow: 5px 5px 0px #000;">
+            <h3 style="text-align:center; background: #000080; color:white; padding: 5px;">Inicio de Sesión</h3>
+            <form onsubmit="handleLogin(event)" style="margin-top:20px;">
+                <div class="form-group">
+                    <label>Usuario:</label>
+                    <input type="text" name="username" autofocus required>
+                </div>
+                 <div class="form-group">
+                    <label>Contraseña:</label>
+                    <input type="password" name="password" required>
+                </div>
+                <button type="submit" class="retro-btn" style="width:100%; margin-top:10px;">Entrar</button>
+            </form>
+        </div>
+    `;
+    document.getElementById('content-area').innerHTML = html;
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData.entries());
+
+    try {
+        const res = await fetch(`${API_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+
+        if (result.success) {
+            window.currentUser = result.user;
+
+            // Update Status Bar
+            const statusUser = document.querySelector('.status-bar p:last-child'); // usually user field
+            if (statusUser) statusUser.innerText = `Usuario: ${result.user.username} (${result.user.role})`;
+
+            // Redirect based on role
+            if (result.user.role === 'vendor') {
+                showSection('sales');
+            } else {
+                showSection('dashboard');
+            }
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error de conexión');
+    }
+}
+
 // Init
-showSection('dashboard');
+checkSession();
 
 // Connection Status Check
 async function checkConnection() {

@@ -91,4 +91,62 @@ router.post('/', (req, res) => {
     }
 });
 
+// Receipt Generation (PDF)
+const PDFDocument = require('pdfkit');
+
+router.get('/:id/receipt', (req, res) => {
+    const saleId = req.params.id;
+    try {
+        const sale = db.prepare('SELECT * FROM ventas WHERE id = ?').get(saleId);
+        if (!sale) return res.status(404).send('Venta no encontrada');
+
+        const items = db.prepare(`
+            SELECT p.nombre, dv.cantidad, dv.precio_venta 
+            FROM detalle_ventas dv
+            JOIN productos p ON dv.codigo_producto = p.codigo
+            WHERE dv.id_venta = ?
+        `).all(saleId);
+
+        const doc = new PDFDocument({ size: [227, 500] }); // ~80mm width typical thermal paper
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename=recibo_${saleId}.pdf`);
+
+        doc.pipe(res);
+
+        // Header
+        doc.font('Helvetica-Bold').fontSize(14).text('RETRO INVENTORY', { align: 'center' });
+        doc.fontSize(10).text('Sistema V5.0', { align: 'center' });
+        doc.moveDown();
+
+        // Info
+        doc.font('Helvetica').fontSize(8);
+        doc.text(`Fecha: ${sale.fecha_venta}`);
+        doc.text(`Ticket #: ${sale.id}`);
+        doc.text(`Pago: ${sale.tipo_pago.toUpperCase()}`);
+        doc.text('------------------------------------------');
+        doc.moveDown(0.5);
+
+        // Items
+        items.forEach(item => {
+            doc.text(`${item.cantidad} x ${item.nombre.substring(0, 15)}`);
+            doc.text(`$${item.precio_venta}   -> $${(item.cantidad * item.precio_venta).toFixed(2)}`, { align: 'right' });
+            doc.moveDown(0.2);
+        });
+
+        doc.text('------------------------------------------');
+        doc.moveDown(0.5);
+
+        // Total
+        doc.font('Helvetica-Bold').fontSize(12).text(`TOTAL: $${sale.total.toFixed(2)}`, { align: 'center' });
+        doc.moveDown();
+        doc.fontSize(8).text('Gracias por su compra!', { align: 'center' });
+
+        doc.end();
+
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+});
+
 module.exports = router;
