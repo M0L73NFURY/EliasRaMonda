@@ -43,27 +43,16 @@ router.get('/comparison', (req, res) => {
 router.get('/suppliers', (req, res) => {
     try {
         // List products by supplier
+        // Products by Supplier with Pricing
         const productsBySupplier = db.prepare(`
-            SELECT prov.nombre as proveedor, prod.nombre as producto, prod.codigo
+            SELECT prov.nombre as proveedor, prod.nombre as producto, prod.codigo, 
+                   prod.precio_compra, prod.precio_venta
             FROM productos prod
             JOIN proveedores prov ON prod.id_proveedor = prov.id
             ORDER BY prov.nombre
         `).all();
 
-        // Best Prices (Min purchase price recorded in details)
-        // Note: This assumes we track 'precio_compra' in details. 
-        // If not, we use the current product price.
-        // Let's analyze purchases (compras + detalle_compras)
-        const bestPrices = db.prepare(`
-            SELECT p.nombre as producto, prov.nombre as proveedor, MIN(dc.precio_compra) as precio_minimo
-            FROM detalle_compras dc
-            JOIN compras c ON dc.id_compra = c.id
-            JOIN proveedores prov ON c.id_proveedor = prov.id
-            JOIN productos p ON dc.codigo_producto = p.codigo
-            GROUP BY p.codigo
-        `).all();
-
-        res.json({ productsBySupplier, bestPrices });
+        res.json({ productsBySupplier });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

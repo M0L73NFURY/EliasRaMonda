@@ -10,6 +10,7 @@ router.get('/', (req, res) => {
             SELECT i.id, i.cantidad, i.lote, i.fecha_vencimiento, p.codigo, p.nombre, p.stock_minimo
             FROM productos p
             LEFT JOIN inventario i ON p.codigo = i.codigo_producto
+            WHERE i.cantidad > 0
             ORDER BY p.nombre, i.fecha_vencimiento ASC
         `);
         const inventory = stmt.all();

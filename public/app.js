@@ -126,8 +126,14 @@ async function generateProductOptions() {
 async function loadProducts() {
     const html = `
         <h3>Gestión de Productos</h3>
-        <div style="margin-bottom: 15px;">
+        <div class="toolbar" style="display:flex; gap:10px; margin-bottom:15px; align-items:center;">
             <button class="retro-btn" onclick="showProductForm()">+ Nuevo Producto</button>
+            <input type="text" id="product-search" placeholder="Buscar..." onkeyup="filterProducts()" style="flex:2;">
+            <select id="product-sort" onchange="sortProducts()" style="width: 130px;">
+                <option value="id">ID</option>
+                <option value="name">Nombre</option>
+                <option value="category">Categoría</option>
+            </select>
         </div>
         <table>
             <thead>
@@ -148,10 +154,18 @@ async function loadProducts() {
     document.getElementById('content-area').innerHTML = html;
 
     const res = await fetch(`${API_URL}/products`);
-    const products = await res.json();
+    window.allProducts = await res.json();
+    renderProducts(window.allProducts);
+}
 
+function renderProducts(products) {
     const tbody = document.getElementById('products-table-body');
     tbody.innerHTML = '';
+
+    if (products.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6">No se encontraron productos.</td></tr>';
+        return;
+    }
 
     products.forEach(p => {
         const tr = document.createElement('tr');
@@ -168,6 +182,42 @@ async function loadProducts() {
         `;
         tbody.appendChild(tr);
     });
+}
+
+function filterProducts() {
+    const term = document.getElementById('product-search').value.toLowerCase();
+    const filtered = window.allProducts.filter(p =>
+        p.nombre.toLowerCase().includes(term) ||
+        p.codigo.toString().includes(term) ||
+        p.categoria?.toLowerCase().includes(term)
+    );
+    // Re-sort current filtered list? ideally yes but for simplicity rendering filtered list.
+    // If sort is active, we should sort the filtered list.
+    // Let's just pass to sortProducts logic if we want to combine.
+    // For now simple filter.
+    renderProducts(filtered);
+}
+
+function sortProducts() {
+    const type = document.getElementById('product-sort').value;
+    const term = document.getElementById('product-search').value.toLowerCase();
+
+    // Get current filtered set to sort
+    let list = window.allProducts.filter(p =>
+        p.nombre.toLowerCase().includes(term) ||
+        p.codigo.toString().includes(term) ||
+        p.categoria?.toLowerCase().includes(term)
+    );
+
+    if (type === 'id') {
+        list.sort((a, b) => a.codigo - b.codigo);
+    } else if (type === 'name') {
+        list.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    } else if (type === 'category') {
+        list.sort((a, b) => (a.categoria || '').localeCompare(b.categoria || ''));
+    }
+
+    renderProducts(list);
 }
 
 function showProductForm(product = null) {
@@ -245,8 +295,9 @@ async function deleteProduct(id) {
 async function loadSuppliers() {
     const html = `
         <h3>Proveedores</h3>
-        <div style="margin-bottom: 15px;">
+        <div style="margin-bottom: 15px; display:flex; gap:10px;">
             <button class="retro-btn" onclick="showSupplierForm()">+ Nuevo Proveedor</button>
+            <input type="text" id="supplier-search" placeholder="Buscar proveedor..." onkeyup="filterSuppliers()" style="flex:1;">
         </div>
         <table>
             <thead>
@@ -266,12 +317,15 @@ async function loadSuppliers() {
     document.getElementById('content-area').innerHTML = html;
 
     const res = await fetch(`${API_URL}/suppliers`);
-    const suppliers = await res.json();
+    window.allSuppliers = await res.json();
+    renderSuppliers(window.allSuppliers);
+}
 
+function renderSuppliers(list) {
     const tbody = document.getElementById('suppliers-table-body');
     tbody.innerHTML = '';
 
-    suppliers.forEach(s => {
+    list.forEach(s => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${s.id}</td>
@@ -284,6 +338,17 @@ async function loadSuppliers() {
         `;
         tbody.appendChild(tr);
     });
+}
+
+function filterSuppliers() {
+    const term = document.getElementById('supplier-search').value.toLowerCase();
+    const filtered = window.allSuppliers.filter(s =>
+        s.nombre.toLowerCase().includes(term) ||
+        (s.email && s.email.toLowerCase().includes(term)) ||
+        (s.telefono && s.telefono.toLowerCase().includes(term)) ||
+        (s.rif && s.rif.toLowerCase().includes(term))
+    );
+    renderSuppliers(filtered);
 }
 
 function showSupplierForm(supplier = null) {
@@ -342,8 +407,9 @@ async function saveSupplier(e, id) {
 async function loadInventory() {
     const html = `
         <h3>Inventario (Detallado)</h3>
-        <div style="margin-bottom: 15px;">
+        <div style="margin-bottom: 15px; display:flex; gap:10px;">
             <button class="retro-btn" onclick="showAddInventoryForm()">+ Entrada de Stock</button>
+            <input type="text" id="inventory-search" placeholder="Buscar producto..." onkeyup="filterInventory()" style="flex:1;">
         </div>
          <table>
             <thead>
@@ -355,64 +421,85 @@ async function loadInventory() {
                     <th>Estado</th>
                 </tr>
             </thead>
-             <tbody id="inventory-table-body"></tbody>
+             <tbody id="inventory-table-body">
+                <tr><td colspan="5">Cargando...</td></tr>
+             </tbody>
         </table>
     `;
     document.getElementById('content-area').innerHTML = html;
 
     try {
         const res = await fetch(`${API_URL}/inventory`);
-        const inv = await res.json();
-
-        const tbody = document.getElementById('inventory-table-body');
-        tbody.innerHTML = '';
-
-        const now = new Date();
-
-        inv.forEach(i => {
-            const tr = document.createElement('tr');
-
-            // Status Logic
-            let status = 'OK';
-            let color = 'inherit';
-            let expiration = i.fecha_vencimiento ? new Date(i.fecha_vencimiento) : null;
-
-            if (!i.cantidad || i.cantidad <= 0) {
-                status = 'SIN STOCK';
-                color = 'gray';
-            }
-
-            if (expiration) {
-                const diffTime = expiration - now;
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                if (diffDays < 0) {
-                    status += ' / VENCIDO';
-                    tr.style.backgroundColor = '#ffcccc'; // Light Red row
-                } else if (diffDays <= 7) {
-                    status += ' / vence pronto';
-                    tr.style.backgroundColor = '#ffebcc'; // Orange row
-                } else if (diffDays <= 30) {
-                    status += ' / verificar fecha';
-                    tr.style.backgroundColor = '#ffffcc'; // Yellow warning row
-                }
-            }
-
-            if (color === 'red') tr.style.color = 'red';
-            if (color === 'gray') tr.style.color = 'gray';
-
-            tr.innerHTML = `
-                <td>${i.nombre} (${i.codigo})</td>
-                <td>${i.lote || '-'}</td>
-                <td>${i.cantidad || 0}</td>
-                <td>${i.fecha_vencimiento || '-'}</td>
-                <td>${status}</td>
-             `;
-            tbody.appendChild(tr);
-        });
+        window.allInventory = await res.json();
+        renderInventory(window.allInventory);
     } catch (e) {
         console.error(e);
+        document.getElementById('inventory-table-body').innerHTML = '<tr><td colspan="5">Error al cargar inventario.</td></tr>';
     }
+}
+
+function renderInventory(inv) {
+    const tbody = document.getElementById('inventory-table-body');
+    tbody.innerHTML = '';
+
+    if (inv.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5">No hay inventario o no coincide con la búsqueda.</td></tr>';
+        return;
+    }
+
+    const now = new Date();
+
+    inv.forEach(i => {
+        const tr = document.createElement('tr');
+
+        // Status Logic
+        let status = 'OK';
+        let color = 'inherit';
+        let expiration = i.fecha_vencimiento ? new Date(i.fecha_vencimiento) : null;
+
+        if (!i.cantidad || i.cantidad <= 0) {
+            status = 'SIN STOCK';
+            color = 'gray';
+        }
+
+        if (expiration) {
+            const diffTime = expiration - now;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays < 0) {
+                status += ' / VENCIDO';
+                tr.style.backgroundColor = '#ffcccc'; // Light Red row
+            } else if (diffDays <= 7) {
+                status += ' / vence pronto';
+                tr.style.backgroundColor = '#ffebcc'; // Orange row
+            } else if (diffDays <= 30) {
+                status += ' / verificar fecha';
+                tr.style.backgroundColor = '#ffffcc'; // Yellow warning row
+            }
+        }
+
+        if (color === 'red') tr.style.color = 'red';
+        if (color === 'gray') tr.style.color = 'gray';
+
+        tr.innerHTML = `
+            <td>${i.nombre} (${i.codigo})</td>
+            <td>${i.lote || '-'}</td>
+            <td>${i.cantidad || 0}</td>
+            <td>${i.fecha_vencimiento || '-'}</td>
+            <td>${status}</td>
+         `;
+        tbody.appendChild(tr);
+    });
+}
+
+function filterInventory() {
+    const term = document.getElementById('inventory-search').value.toLowerCase();
+    const filtered = window.allInventory.filter(i =>
+        i.nombre.toLowerCase().includes(term) ||
+        i.codigo.toString().includes(term) ||
+        (i.lote && i.lote.toLowerCase().includes(term))
+    );
+    renderInventory(filtered);
 }
 
 async function showAddInventoryForm() {
@@ -643,11 +730,11 @@ async function showReport(type) {
         container.innerHTML = `
             <h4>Comparativa de Ventas</h4>
             <div class="form-grid">
-                <div><h5>Periodo A (Actual)</h5>
+                <div><h5>Periodo A (Anterior)</h5>
                 <label>Desde:</label> <input type="date" id="rep-startA">
                 <label>Hasta:</label> <input type="date" id="rep-endA"></div>
                 
-                <div><h5>Periodo B (Anterior)</h5>
+                <div><h5>Periodo B (Actual)</h5>
                 <label>Desde:</label> <input type="date" id="rep-startB">
                 <label>Hasta:</label> <input type="date" id="rep-endB"></div>
             </div>
@@ -657,25 +744,12 @@ async function showReport(type) {
     } else if (type === 'suppliers') {
         const res = await fetch(`${API_URL}/reports/suppliers`);
         const data = await res.json();
+        const list = data.productsBySupplier; // Now contains pricing info
 
-        let html = `<h4>Análisis de Proveedores</h4>`;
+        // Store for filtering
+        window.allMapData = list;
 
-        // Product-Supplier Map
-        html += `<h5>Productos por Proveedor</h5><ul>`;
-        data.productsBySupplier.forEach(i => {
-            html += `<li><strong>${i.proveedor}</strong>: ${i.producto} (${i.codigo})</li>`;
-        });
-        html += `</ul>`;
-
-        // Best Prices
-        html += `<h5>Mejores Precios Históricos</h5><table><tr><th>Producto</th><th>Proveedor</th><th>Precio Mín</th></tr>`;
-        data.bestPrices.forEach(i => {
-            html += `<tr><td>${i.producto}</td><td>${i.proveedor}</td><td>$${i.precio_minimo}</td></tr>`;
-        });
-        html += `</table>`;
-
-        container.innerHTML = html;
-
+        renderSupplierReport(list);
     } else if (type === 'prediction') {
         const res = await fetch(`${API_URL}/reports/prediction`);
         const data = await res.json();
@@ -750,6 +824,60 @@ async function runComparisonReport() {
         </div>
     `;
     document.getElementById('rep-result').innerHTML = html;
+}
+
+function renderSupplierReport(list) {
+    const container = document.getElementById('report-content');
+
+    let html = `
+        <h4>Análisis de Proveedores</h4>
+        <div style="margin-bottom:15px;">
+            <input type="text" id="rep-supplier-search" placeholder="Filtrar por proveedor..." onkeyup="filterSupplierReport()" style="width:100%;">
+        </div>
+        <table id="rep-supplier-table">
+            <thead>
+                <tr>
+                    <th>Proveedor</th>
+                    <th>Producto</th>
+                    <th>Precio Compra</th>
+                    <th>Precio Venta</th>
+                    <th>Margen</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    if (list.length === 0) {
+        html += `<tr><td colspan="5">No hay datos.</td></tr>`;
+    } else {
+        list.forEach(i => {
+            let margin = 0;
+            if (i.precio_venta && i.precio_compra) {
+                margin = ((i.precio_venta - i.precio_compra) / i.precio_venta) * 100;
+            }
+
+            html += `<tr>
+                <td><strong>${i.proveedor}</strong></td>
+                <td>${i.producto} (${i.codigo})</td>
+                <td>$${i.precio_compra || 0}</td>
+                <td>$${i.precio_venta || 0}</td>
+                <td>${margin.toFixed(1)}%</td>
+           </tr>`;
+        });
+    }
+
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+}
+
+function filterSupplierReport() {
+    const term = document.getElementById('rep-supplier-search').value.toLowerCase();
+    const filtered = window.allMapData.filter(i =>
+        i.proveedor.toLowerCase().includes(term) ||
+        i.producto.toLowerCase().includes(term)
+    );
+    // Optimization: Just re-render table body would be faster, but re-calling full render is easier
+    renderSupplierReport(filtered);
 }
 
 function loadHelp() {
