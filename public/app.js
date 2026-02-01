@@ -3,27 +3,54 @@
 const API_URL = 'http://localhost:3001/api';
 
 // --- Navigation ---
+// --- Navigation ---
 function showSection(sectionId) {
-    const contentArea = document.getElementById('content-area');
+    if (!window.currentUser) {
+        showLogin();
+        return;
+    }
 
-    // Clear current content
+    const role = window.currentUser.role;
+
+    // Role-Based Access Control
+    if (role === 'vendor') {
+        const allowed = ['sales', 'products', 'help'];
+        if (!allowed.includes(sectionId)) {
+            alert('Acceso Denegado: Permisos insuficientes.');
+            return;
+        }
+    }
+
+    const contentArea = document.getElementById('content-area');
     contentArea.innerHTML = '';
 
-    if (sectionId === 'dashboard') {
-        loadDashboard();
-    } else if (sectionId === 'products') {
-        loadProducts();
-    } else if (sectionId === 'inventory') {
-        loadInventory();
-    } else if (sectionId === 'suppliers') {
-        loadSuppliers();
-    } else if (sectionId === 'sales') {
-        loadSales();
-    } else if (sectionId === 'reports') {
-        loadReports();
-    } else if (sectionId === 'help') {
-        loadHelp();
+    // Update styling for active menu
+    document.querySelectorAll('.menu-item').forEach(btn => btn.classList.remove('active'));
+    // Find button
+    const map = {
+        'dashboard': 'Inicio',
+        'products': 'Productos',
+        'inventory': 'Inventario',
+        'sales': 'Ventas',
+        'suppliers': 'Proveedores',
+        'reports': 'Reportes',
+        'help': 'Ayuda'
+    };
+    const btnText = map[sectionId];
+    if (btnText) {
+        const buttons = Array.from(document.querySelectorAll('.menu-item'));
+        const btn = buttons.find(b => b.innerText === btnText);
+        if (btn) btn.classList.add('active');
     }
+
+    // Load Section
+    if (sectionId === 'dashboard') loadDashboard();
+    else if (sectionId === 'products') loadProducts();
+    else if (sectionId === 'inventory') loadInventory();
+    else if (sectionId === 'suppliers') loadSuppliers();
+    else if (sectionId === 'sales') loadSales();
+    else if (sectionId === 'reports') loadReports();
+    else if (sectionId === 'help') loadHelp();
 }
 
 // --- Dashboard ---
@@ -35,7 +62,7 @@ async function loadDashboard() {
             <hr>
             <div class="stats-grid">
                 <div class="stat-box">
-                    <span>Productos Bajo Stock</span>
+                    <span>Alertas (Stock/Exp)</span>
                     <strong id="stat-low-stock">Loading...</strong>
                 </div>
                  <div class="stat-box">
@@ -45,7 +72,7 @@ async function loadDashboard() {
             </div>
             
             <div style="margin-top:20px; border: 1px solid gray; padding: 10px;">
-               <h4>Alertas Activas</h4>
+               <h4>Panel de Alertas</h4>
                <ul id="alerts-list"></ul>
             </div>
         </div>
@@ -56,7 +83,7 @@ async function loadDashboard() {
 
 async function updateDashboardStats() {
     try {
-        // Low Stock
+        // Alerts
         const resAlerts = await fetch(`${API_URL}/inventory/alerts`);
         const alerts = await resAlerts.json();
         document.getElementById('stat-low-stock').innerText = alerts.length;
@@ -64,19 +91,27 @@ async function updateDashboardStats() {
         // Sales Today
         const resSales = await fetch(`${API_URL}/sales/today`);
         const salesData = await resSales.json();
-        // Now using count
         const salesCount = salesData.count || 0;
         document.getElementById('stat-sales-today').innerText = salesCount;
 
         // Render Alerts List
         const list = document.getElementById('alerts-list');
         list.innerHTML = '';
-        alerts.forEach(a => {
-            const li = document.createElement('li');
-            li.style.color = 'red';
-            li.innerText = `ALERTA: Producto ${a.nombre} (Código: ${a.codigo}) tiene stock ${a.total_stock} (Mín: ${a.stock_minimo})`;
-            list.appendChild(li);
-        });
+        if (alerts.length === 0) {
+            list.innerHTML = '<li>Sin alertas activas.</li>';
+        } else {
+            alerts.forEach(a => {
+                const li = document.createElement('li');
+                if (a.type === 'LOW_STOCK') {
+                    li.style.color = 'red';
+                    li.innerText = `STOCK: Producto ${a.nombre} (${a.codigo}) tiene stock ${a.total_stock} (Mín: ${a.stock_minimo})`;
+                } else if (a.type === 'EXPIRING') {
+                    li.style.color = 'orange'; // or DarkOrange
+                    li.innerText = `VENCIMIENTO: Producto ${a.nombre} caduca el ${a.fecha_vencimiento.split('T')[0]}`;
+                }
+                list.appendChild(li);
+            });
+        }
     } catch (e) {
         console.error(e);
     }
@@ -84,11 +119,31 @@ async function updateDashboardStats() {
 
 
 // --- Products ---
+async function generateProductOptions() {
+    const res = await fetch(`${API_URL}/products`);
+    const products = await res.json();
+    if (products.length === 0) return '<option value="" disabled>No hay productos registrados</option>';
+
+    let options = '<option value="" selected disabled>Seleccione un producto...</option>';
+    products.forEach(p => {
+        options += `<option value="${p.codigo}">[${p.codigo}] - ${p.nombre} (Stock: ${p.stock_minimo /* Prop hack */})</option>`;
+    });
+    return options;
+}
+
 async function loadProducts() {
+    const isVendor = window.currentUser && window.currentUser.role === 'vendor';
+
     const html = `
         <h3>Gestión de Productos</h3>
-        <div style="margin-bottom: 15px;">
-            <button class="retro-btn" onclick="showProductForm()">+ Nuevo Producto</button>
+        <div class="toolbar" style="display:flex; gap:10px; margin-bottom:15px; align-items:center;">
+            ${!isVendor ? '<button class="retro-btn" onclick="showProductForm()">+ Nuevo Producto</button>' : ''}
+            <input type="text" id="product-search" placeholder="Buscar..." onkeyup="filterProducts()" style="flex:2;">
+            <select id="product-sort" onchange="sortProducts()" style="width: 130px;">
+                <option value="id">ID</option>
+                <option value="name">Nombre</option>
+                <option value="category">Categoría</option>
+            </select>
         </div>
         <table>
             <thead>
@@ -98,37 +153,89 @@ async function loadProducts() {
                     <th>Categoría</th>
                     <th>Precio Venta</th>
                     <th>Stock Mín</th>
-                    <th>Acciones</th>
+                    ${!isVendor ? '<th>Acciones</th>' : ''}
                 </tr>
             </thead>
             <tbody id="products-table-body">
-                <tr><td colspan="6">Cargando...</td></tr>
+                <tr><td colspan="${isVendor ? 5 : 6}">Cargando...</td></tr>
             </tbody>
         </table>
     `;
     document.getElementById('content-area').innerHTML = html;
 
     const res = await fetch(`${API_URL}/products`);
-    const products = await res.json();
+    window.allProducts = await res.json();
+    renderProducts(window.allProducts);
+}
 
+function renderProducts(products) {
     const tbody = document.getElementById('products-table-body');
     tbody.innerHTML = '';
+    const isVendor = window.currentUser && window.currentUser.role === 'vendor';
+
+    if (products.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${isVendor ? 5 : 6}">No se encontraron productos.</td></tr>`;
+        return;
+    }
 
     products.forEach(p => {
         const tr = document.createElement('tr');
+
+        let actionsHtml = '';
+        if (!isVendor) {
+            actionsHtml = `
+            <td>
+                <button class="retro-btn" onclick='showProductForm(${JSON.stringify(p)})'>Editar</button>
+                <button class="retro-btn" onclick="deleteProduct(${p.codigo})">X</button>
+            </td>`;
+        }
+
         tr.innerHTML = `
             <td>${p.codigo}</td>
             <td>${p.nombre}</td>
             <td>${p.categoria}</td>
             <td>$${p.precio_venta}</td>
             <td>${p.stock_minimo}</td>
-            <td>
-                <button class="retro-btn" onclick='showProductForm(${JSON.stringify(p)})'>Editar</button>
-                <button class="retro-btn" onclick="deleteProduct(${p.codigo})">X</button>
-            </td>
+            ${actionsHtml}
         `;
         tbody.appendChild(tr);
     });
+}
+
+function filterProducts() {
+    const term = document.getElementById('product-search').value.toLowerCase();
+    const filtered = window.allProducts.filter(p =>
+        p.nombre.toLowerCase().includes(term) ||
+        p.codigo.toString().includes(term) ||
+        p.categoria?.toLowerCase().includes(term)
+    );
+    // Re-sort current filtered list? ideally yes but for simplicity rendering filtered list.
+    // If sort is active, we should sort the filtered list.
+    // Let's just pass to sortProducts logic if we want to combine.
+    // For now simple filter.
+    renderProducts(filtered);
+}
+
+function sortProducts() {
+    const type = document.getElementById('product-sort').value;
+    const term = document.getElementById('product-search').value.toLowerCase();
+
+    // Get current filtered set to sort
+    let list = window.allProducts.filter(p =>
+        p.nombre.toLowerCase().includes(term) ||
+        p.codigo.toString().includes(term) ||
+        p.categoria?.toLowerCase().includes(term)
+    );
+
+    if (type === 'id') {
+        list.sort((a, b) => a.codigo - b.codigo);
+    } else if (type === 'name') {
+        list.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    } else if (type === 'category') {
+        list.sort((a, b) => (a.categoria || '').localeCompare(b.categoria || ''));
+    }
+
+    renderProducts(list);
 }
 
 function showProductForm(product = null) {
@@ -201,26 +308,14 @@ async function deleteProduct(id) {
     }
 }
 
-// Helper for Options
-async function generateProductOptions() {
-    const res = await fetch(`${API_URL}/products`);
-    const products = await res.json();
-    if (products.length === 0) return '<option value="" disabled>No hay productos registrados</option>';
-
-    let options = '<option value="" selected disabled>Seleccione un producto...</option>';
-    products.forEach(p => {
-        options += `<option value="${p.codigo}">[${p.codigo}] - ${p.nombre} (Stock: ${p.total_stock /* Prop hack */})</option>`;
-    });
-    return options;
-}
-
 
 // --- Suppliers ---
 async function loadSuppliers() {
     const html = `
         <h3>Proveedores</h3>
-        <div style="margin-bottom: 15px;">
+        <div style="margin-bottom: 15px; display:flex; gap:10px;">
             <button class="retro-btn" onclick="showSupplierForm()">+ Nuevo Proveedor</button>
+            <input type="text" id="supplier-search" placeholder="Buscar proveedor..." onkeyup="filterSuppliers()" style="flex:1;">
         </div>
         <table>
             <thead>
@@ -240,12 +335,15 @@ async function loadSuppliers() {
     document.getElementById('content-area').innerHTML = html;
 
     const res = await fetch(`${API_URL}/suppliers`);
-    const suppliers = await res.json();
+    window.allSuppliers = await res.json();
+    renderSuppliers(window.allSuppliers);
+}
 
+function renderSuppliers(list) {
     const tbody = document.getElementById('suppliers-table-body');
     tbody.innerHTML = '';
 
-    suppliers.forEach(s => {
+    list.forEach(s => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${s.id}</td>
@@ -260,6 +358,16 @@ async function loadSuppliers() {
     });
 }
 
+function filterSuppliers() {
+    const term = document.getElementById('supplier-search').value.toLowerCase();
+    const filtered = window.allSuppliers.filter(s =>
+        s.nombre.toLowerCase().includes(term) ||
+        (s.email && s.email.toLowerCase().includes(term)) ||
+        (s.telefono && s.telefono.toLowerCase().includes(term)) ||
+        (s.rif && s.rif.toLowerCase().includes(term))
+    );
+    renderSuppliers(filtered);
+}
 
 function showSupplierForm(supplier = null) {
     const isEdit = !!supplier;
@@ -316,39 +424,100 @@ async function saveSupplier(e, id) {
 // --- Inventory ---
 async function loadInventory() {
     const html = `
-        <h3>Inventario</h3>
-        <div style="margin-bottom: 15px;">
+        <h3>Inventario (Detallado)</h3>
+        <div style="margin-bottom: 15px; display:flex; gap:10px;">
             <button class="retro-btn" onclick="showAddInventoryForm()">+ Entrada de Stock</button>
+            <input type="text" id="inventory-search" placeholder="Buscar producto..." onkeyup="filterInventory()" style="flex:1;">
         </div>
          <table>
             <thead>
                 <tr>
                     <th>Producto</th>
-                    <th>Total Stock</th>
+                    <th>Lote</th>
+                    <th>Cant</th>
+                    <th>Vencimiento</th>
                     <th>Estado</th>
                 </tr>
             </thead>
-             <tbody id="inventory-table-body"></tbody>
+             <tbody id="inventory-table-body">
+                <tr><td colspan="5">Cargando...</td></tr>
+             </tbody>
         </table>
     `;
     document.getElementById('content-area').innerHTML = html;
 
-    const res = await fetch(`${API_URL}/inventory`);
-    const inv = await res.json();
+    try {
+        const res = await fetch(`${API_URL}/inventory`);
+        window.allInventory = await res.json();
+        renderInventory(window.allInventory);
+    } catch (e) {
+        console.error(e);
+        document.getElementById('inventory-table-body').innerHTML = '<tr><td colspan="5">Error al cargar inventario.</td></tr>';
+    }
+}
 
+function renderInventory(inv) {
     const tbody = document.getElementById('inventory-table-body');
     tbody.innerHTML = '';
 
+    if (inv.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5">No hay inventario o no coincide con la búsqueda.</td></tr>';
+        return;
+    }
+
+    const now = new Date();
+
     inv.forEach(i => {
         const tr = document.createElement('tr');
-        const status = i.total_stock <= i.stock_minimo ? '<span style="color:red; font-weight:bold;">BAJO</span>' : 'OK';
+
+        // Status Logic
+        let status = 'OK';
+        let color = 'inherit';
+        let expiration = i.fecha_vencimiento ? new Date(i.fecha_vencimiento) : null;
+
+        if (!i.cantidad || i.cantidad <= 0) {
+            status = 'SIN STOCK';
+            color = 'gray';
+        }
+
+        if (expiration) {
+            const diffTime = expiration - now;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays < 0) {
+                status += ' / VENCIDO';
+                tr.style.backgroundColor = '#ffcccc'; // Light Red row
+            } else if (diffDays <= 7) {
+                status += ' / vence pronto';
+                tr.style.backgroundColor = '#ffebcc'; // Orange row
+            } else if (diffDays <= 30) {
+                status += ' / verificar fecha';
+                tr.style.backgroundColor = '#ffffcc'; // Yellow warning row
+            }
+        }
+
+        if (color === 'red') tr.style.color = 'red';
+        if (color === 'gray') tr.style.color = 'gray';
+
         tr.innerHTML = `
             <td>${i.nombre} (${i.codigo})</td>
-            <td>${i.total_stock || 0}</td>
+            <td>${i.lote || '-'}</td>
+            <td>${i.cantidad || 0}</td>
+            <td>${i.fecha_vencimiento || '-'}</td>
             <td>${status}</td>
          `;
         tbody.appendChild(tr);
     });
+}
+
+function filterInventory() {
+    const term = document.getElementById('inventory-search').value.toLowerCase();
+    const filtered = window.allInventory.filter(i =>
+        i.nombre.toLowerCase().includes(term) ||
+        i.codigo.toString().includes(term) ||
+        (i.lote && i.lote.toLowerCase().includes(term))
+    );
+    renderInventory(filtered);
 }
 
 async function showAddInventoryForm() {
@@ -530,8 +699,19 @@ async function processSale() {
         if (result.error) {
             alert('Error: ' + result.error);
         } else {
-            alert('Venta procesada con éxito! ID: ' + result.id);
-            loadSales(); // Reset
+            // alert('Venta procesada con éxito! ID: ' + result.id);
+            // Show Receipt Option
+            const container = document.getElementById('content-area');
+            container.innerHTML = `
+                <div style="text-align:center; padding: 50px;">
+                    <h3>¡Venta Completada!</h3>
+                    <p>ID de Transacción: ${result.id}</p>
+                    <div style="margin-top:20px;">
+                        <button class="retro-btn" onclick="window.open('${API_URL}/sales/${result.id}/receipt', '_blank')">🖨️ Imprimir Recibo</button>
+                        <button class="retro-btn" onclick="loadSales()">Nueva Venta</button>
+                    </div>
+                </div>
+            `;
         }
     } catch (e) {
         alert('Error de conexión');
@@ -539,26 +719,301 @@ async function processSale() {
 }
 
 
-// --- Other ---
+// --- Reports Module (V5) ---
 function loadReports() {
-    document.getElementById('content-area').innerHTML = '<h3>Reportes</h3><p>Funcionalidad en construcción...</p>';
+    const html = `
+        <h3>Reportes Avanzados</h3>
+        <div id="reports-nav" class="menu-bar" style="border:none; margin-bottom:15px;">
+            <button id="btn-rep-sales" class="menu-item" onclick="showReport('sales')">Ventas</button>
+            <button id="btn-rep-comparison" class="menu-item" onclick="showReport('comparison')">Comparativa</button>
+            <button id="btn-rep-suppliers" class="menu-item" onclick="showReport('suppliers')">Proveedores</button>
+            <button id="btn-rep-prediction" class="menu-item" onclick="showReport('prediction')">Predicción Stock</button>
+        </div>
+        <div id="report-content" style="border: 2px solid gray; padding: 10px; background: #EEE;">
+            <p>Seleccione un tipo de reporte.</p>
+        </div>
+    `;
+    document.getElementById('content-area').innerHTML = html;
+}
+
+async function showReport(type) {
+    // Update active state
+    document.querySelectorAll('#reports-nav .menu-item').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-rep-' + type)?.classList.add('active');
+
+    const container = document.getElementById('report-content');
+    container.innerHTML = 'Cargando...';
+
+    if (type === 'sales') {
+        const today = new Date().toISOString().split('T')[0];
+        container.innerHTML = `
+            <h4>Reporte de Ventas</h4>
+            <div class="form-grid">
+                <div><label>Desde:</label> <input type="date" id="rep-start" value="${today}"></div>
+                <div><label>Hasta:</label> <input type="date" id="rep-end" value="${today}"></div>
+            </div>
+            <button class="retro-btn" onclick="runSalesReport()">Generar</button>
+            <div id="rep-result"></div>
+        `;
+    } else if (type === 'comparison') {
+        container.innerHTML = `
+            <h4>Comparativa de Ventas</h4>
+            <div class="form-grid">
+                <div><h5>Periodo A (Anterior)</h5>
+                <label>Desde:</label> <input type="date" id="rep-startA">
+                <label>Hasta:</label> <input type="date" id="rep-endA"></div>
+                
+                <div><h5>Periodo B (Actual)</h5>
+                <label>Desde:</label> <input type="date" id="rep-startB">
+                <label>Hasta:</label> <input type="date" id="rep-endB"></div>
+            </div>
+            <button class="retro-btn" onclick="runComparisonReport()">Comparar</button>
+            <div id="rep-result"></div>
+        `;
+    } else if (type === 'suppliers') {
+        const res = await fetch(`${API_URL}/reports/suppliers`);
+        const data = await res.json();
+        const list = data.productsBySupplier; // Now contains pricing info
+
+        // Store for filtering
+        window.allMapData = list;
+
+        renderSupplierReport(list);
+    } else if (type === 'prediction') {
+        const res = await fetch(`${API_URL}/reports/prediction`);
+        const data = await res.json();
+
+        let html = `<h4>Predicción de Compra (Modelo s,S)</h4>`;
+        if (data.length === 0) {
+            html += `<p>No hay recomendaciones de compra urgentes (Stock > Mínimo).</p>`;
+        } else {
+            html += `<table><tr><th>Producto</th><th>Stock Actual</th><th>Punto Reorden (s)</th><th>Nivel Objetivo (S)</th><th>Demanda Mes</th><th>ORDEN SUGERIDA</th></tr>`;
+            data.forEach(i => {
+                html += `<tr>
+                    <td>${i.nombre}</td>
+                    <td>${i.current_stock}</td>
+                    <td>${i.reorder_point_s}</td>
+                    <td>${i.target_level_S}</td>
+                    <td>${i.monthly_demand}</td>
+                    <td style="background:#ffffcc; font-weight:bold;">${i.suggested_order}</td>
+                </tr>`;
+            });
+            html += `</table>`;
+        }
+
+        container.innerHTML = html;
+    }
+}
+
+async function runSalesReport() {
+    const start = document.getElementById('rep-start').value;
+    const end = document.getElementById('rep-end').value;
+    const res = await fetch(`${API_URL}/reports/sales?start=${start}&end=${end}`);
+    const data = await res.json();
+
+    let html = `<h5>Resultados (${data.length} ventas)</h5><table><tr><th>ID</th><th>Fecha</th><th>Total</th><th>Pago</th></tr>`;
+    let sum = 0;
+    data.forEach(v => {
+        sum += v.total;
+        html += `<tr><td>${v.id}</td><td>${v.fecha_venta}</td><td>$${v.total}</td><td>${v.tipo_pago}</td></tr>`;
+    });
+    html += `</table><p><strong>Total Período: $${sum.toFixed(2)}</strong></p>`;
+    document.getElementById('rep-result').innerHTML = html;
+}
+
+async function runComparisonReport() {
+    const sA = document.getElementById('rep-startA').value;
+    const eA = document.getElementById('rep-endA').value;
+    const sB = document.getElementById('rep-startB').value;
+    const eB = document.getElementById('rep-endB').value;
+
+    if (!sA || !eA || !sB || !eB) return alert('Seleccione todas las fechas');
+
+    const res = await fetch(`${API_URL}/reports/comparison?startA=${sA}&endA=${eA}&startB=${sB}&endB=${eB}`);
+    const data = await res.json();
+
+    let color = data.difference_percent >= 0 ? 'green' : 'red';
+
+    let html = `
+        <div style="display:flex; gap:20px; text-align:center; margin-top:20px;">
+            <div style="border:1px solid gray; padding:10px; flex:1;">
+                <h5>Periodo A</h5>
+                <p>${data.periodA.start} al ${data.periodA.end}</p>
+                <h3>$${data.periodA.total.toFixed(2)}</h3>
+            </div>
+            <div style="border:1px solid gray; padding:10px; flex:1;">
+                <h5>Periodo B</h5>
+                <p>${data.periodB.start} al ${data.periodB.end}</p>
+                <h3>$${data.periodB.total.toFixed(2)}</h3>
+            </div>
+        </div>
+        <div style="text-align:center; margin-top:20px;">
+             <h4>Diferencia: <span style="color:${color}">${data.difference_percent}%</span></h4>
+             <p>${data.difference_percent > 0 ? 'Las ventas AUMENTARON' : 'Las ventas DISMINUYERON'} en el periodo A vs B.</p>
+        </div>
+    `;
+    document.getElementById('rep-result').innerHTML = html;
+}
+
+function renderSupplierReport(list) {
+    const container = document.getElementById('report-content');
+
+    let html = `
+        <h4>Análisis de Proveedores</h4>
+        <div style="margin-bottom:15px;">
+            <input type="text" id="rep-supplier-search" placeholder="Filtrar por proveedor..." onkeyup="filterSupplierReport()" style="width:100%;">
+        </div>
+        <table id="rep-supplier-table">
+            <thead>
+                <tr>
+                    <th>Proveedor</th>
+                    <th>Producto</th>
+                    <th>Precio Compra</th>
+                    <th>Precio Venta</th>
+                    <th>Margen</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    if (list.length === 0) {
+        html += `<tr><td colspan="5">No hay datos.</td></tr>`;
+    } else {
+        list.forEach(i => {
+            let margin = 0;
+            if (i.precio_venta && i.precio_compra) {
+                margin = ((i.precio_venta - i.precio_compra) / i.precio_venta) * 100;
+            }
+
+            html += `<tr>
+                <td><strong>${i.proveedor}</strong></td>
+                <td>${i.producto} (${i.codigo})</td>
+                <td>$${i.precio_compra || 0}</td>
+                <td>$${i.precio_venta || 0}</td>
+                <td>${margin.toFixed(1)}%</td>
+           </tr>`;
+        });
+    }
+
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+}
+
+function filterSupplierReport() {
+    const term = document.getElementById('rep-supplier-search').value.toLowerCase();
+    const filtered = window.allMapData.filter(i =>
+        i.proveedor.toLowerCase().includes(term) ||
+        i.producto.toLowerCase().includes(term)
+    );
+    // Optimization: Just re-render table body would be faster, but re-calling full render is easier
+    renderSupplierReport(filtered);
 }
 
 function loadHelp() {
     const html = `
         <h3>Ayuda del Sistema</h3>
-        <p>Bienvenido al Sistema de Inventario v1.0. Aquí tiene una guía rápida:</p>
+        <p>Bienvenido al Sistema de Inventario v5.0.</p>
         <ul>
-            <li><strong>Dashboard:</strong> Vista general de alertas y estadísticas.</li>
-            <li><strong>Productos:</strong> Cree, edite y elimine productos. Defina stock mínimo para alertas.</li>
-            <li><strong>Inventario:</strong> Vea el stock actual. Agregue entradas de inventario (compras).</li>
-            <li><strong>Ventas:</strong> Procese ventas. Esto descontará automáticamente del inventario (FIFO).</li>
-            <li><strong>Proveedores:</strong> Gestione su lista de proveedores.</li>
+            <li><strong>Dashboard:</strong> Vista general de alertas (Stock bajo y Vencimientos).</li>
+            <li><strong>Productos:</strong> Gestión de catálogo.</li>
+            <li><strong>Inventario:</strong> Stock actual. <br>
+                <span style="background:#ffffcc">Amarillo</span>: Vence en 30 días.<br>
+                <span style="background:#ffebcc">Naranja</span>: Vence en 7 días.<br>
+                <span style="background:#ffcccc">Rojo</span>: Vencido.
+            </li>
+            <li><strong>Ventas:</strong> Punto de venta.</li>
+            <li><strong>Reportes:</strong> Analíticas avanzadas y predicción de compras.</li>
         </ul>
-        <p>Para soporte técnico, contacte al administrador.</p>
     `;
     document.getElementById('content-area').innerHTML = html;
 }
 
+// --- Login & Init ---
+function checkSession() {
+    if (!window.currentUser) {
+        showLogin();
+    } else {
+        if (window.currentUser.role === 'vendor') {
+            showSection('sales');
+        } else {
+            showSection('dashboard');
+        }
+    }
+}
+
+function showLogin() {
+    const html = `
+        <div style="max-width:300px; margin: 100px auto; border: 2px solid gray; padding: 20px; background: #c0c0c0; box-shadow: 5px 5px 0px #000;">
+            <h3 style="text-align:center; background: #000080; color:white; padding: 5px;">Inicio de Sesión</h3>
+            <form onsubmit="handleLogin(event)" style="margin-top:20px;">
+                <div class="form-group">
+                    <label>Usuario:</label>
+                    <input type="text" name="username" autofocus required>
+                </div>
+                 <div class="form-group">
+                    <label>Contraseña:</label>
+                    <input type="password" name="password" required>
+                </div>
+                <button type="submit" class="retro-btn" style="width:100%; margin-top:10px;">Entrar</button>
+            </form>
+        </div>
+    `;
+    document.getElementById('content-area').innerHTML = html;
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData.entries());
+
+    try {
+        const res = await fetch(`${API_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+
+        if (result.success) {
+            window.currentUser = result.user;
+
+            // Update Status Bar
+            const statusUser = document.querySelector('.status-bar p:last-child'); // usually user field
+            if (statusUser) statusUser.innerText = `Usuario: ${result.user.username} (${result.user.role})`;
+
+            // Redirect based on role
+            if (result.user.role === 'vendor') {
+                showSection('sales');
+            } else {
+                showSection('dashboard');
+            }
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error de conexión');
+    }
+}
+
 // Init
-showSection('dashboard');
+checkSession();
+
+// Connection Status Check
+async function checkConnection() {
+    const statusEl = document.getElementById('status-indicator');
+    if (!statusEl) return;
+
+    try {
+        await fetch(`${API_URL}/health`);
+        statusEl.innerText = 'Estado: Conectado';
+        statusEl.style.color = '#006600'; // Dark Green
+    } catch (e) {
+        statusEl.innerText = 'Estado: Desconectado';
+        statusEl.style.color = '#800000'; // Dark Red
+    }
+}
+// Run every 5s
+setInterval(checkConnection, 5000);
+// Run on load
+checkConnection();

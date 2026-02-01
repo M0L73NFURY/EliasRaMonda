@@ -76,8 +76,25 @@ const schema = `
         FOREIGN KEY (id_venta) REFERENCES ventas(id),
         FOREIGN KEY (codigo_producto) REFERENCES productos(codigo)
     );
+
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE,
+        password TEXT,
+        role TEXT
+    );
 `;
 
 db.exec(schema);
+
+// Seed Users if empty
+const adminExists = db.prepare("SELECT count(*) as count FROM users WHERE username = 'Admin'").get();
+if (adminExists.count === 0) {
+    db.prepare("INSERT INTO users (username, password, role) VALUES ('Admin', 'Admin', 'admin')").run();
+    db.prepare("INSERT INTO users (username, password, role) VALUES ('Vendor', 'Vendor', 'vendor')").run();
+    console.log("Users seeded.");
+}
+
+console.log("Database initialized.");
 
 module.exports = db;
