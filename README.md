@@ -86,5 +86,4 @@ Un sistema de gestión de inventario robusto y completo, diseñado con una nost�
 ¡Las contribuciones son bienvenidas! Si encuentras un bug o quieres añadir una feature (quizás soporte para Fax?), abre un Issue o Pull Request.
 
 ---
-*Developed with ❤️ by Antigravity using Node.js & SQLite.*
-*© 1999-2026 StockMaster Systems.*
+*Developed using Node.js & SQLite.*
