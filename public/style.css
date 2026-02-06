@@ -70,6 +70,9 @@ body {
     flex-grow: 1;
     display: flex;
     flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    /* Fix vertical overflow */
 }
 
 .menu-bar {
@@ -105,7 +108,7 @@ body {
     border: 2px solid;
     border-color: var(--button-shadow) var(--button-highlight) var(--button-highlight) var(--button-shadow);
     padding: 15px;
-    overflow-y: auto;
+    overflow: auto;
 }
 
 .status-bar {
@@ -203,4 +206,87 @@ td {
 th {
     background-color: var(--window-bg);
     font-weight: bold;
+}
+
+/* V8 Enhancements */
+.alert-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 15px;
+    padding: 10px;
+}
+
+.alert-card {
+    background: #e0e0e0;
+    border: 2px solid;
+    border-color: #fff #808080 #808080 #fff;
+    padding: 2px;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+}
+
+.alert-header {
+    background: linear-gradient(90deg, #800000, #ff0000);
+    color: white;
+    padding: 2px 4px;
+    font-weight: bold;
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.alert-header.warning {
+    background: linear-gradient(90deg, #808000, #ffff00);
+    color: black;
+}
+
+.alert-body {
+    padding: 10px;
+    font-size: 13px;
+    flex-grow: 1;
+}
+
+.pagination-controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 15px;
+    align-items: center;
+}
+
+.page-btn {
+    min-width: 30px;
+    text-align: center;
+}
+
+/* V9 Modals */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-window {
+    width: 500px;
+    max-width: 90%;
+    background-color: var(--window-bg);
+    border: 2px solid;
+    border-color: var(--button-highlight) var(--border-dark) var(--border-dark) var(--button-highlight);
+    box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-body {
+    padding: 15px;
+    max-height: 80vh;
+    overflow-y: auto;
 }

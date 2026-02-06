@@ -57,7 +57,7 @@ function showSection(sectionId) {
 async function loadDashboard() {
     const html = `
         <div id="dashboard-view">
-            <h3>Bienvenido al Sistema</h3>
+            <h3>Bienvenido a StockMaster 2000</h3>
             <p>Seleccione una opción del menú para comenzar.</p>
             <hr>
             <div class="stats-grid">
@@ -72,8 +72,15 @@ async function loadDashboard() {
             </div>
             
             <div style="margin-top:20px; border: 1px solid gray; padding: 10px;">
-               <h4>Panel de Alertas</h4>
-               <ul id="alerts-list"></ul>
+               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                   <h4 style="margin:0;">Panel de Alertas</h4>
+                   <div class="filter-controls">
+                       <button class="retro-btn" onclick="filterDashboardAlerts('all')">Todas</button>
+                       <button class="retro-btn" onclick="filterDashboardAlerts('LOW_STOCK')">Stock Bajo</button>
+                       <button class="retro-btn" onclick="filterDashboardAlerts('EXPIRING')">Vencimientos</button>
+                   </div>
+               </div>
+               <div id="alerts-container"></div>
             </div>
         </div>
     `;
@@ -86,6 +93,7 @@ async function updateDashboardStats() {
         // Alerts
         const resAlerts = await fetch(`${API_URL}/inventory/alerts`);
         const alerts = await resAlerts.json();
+        window.allAlerts = alerts; // Store for filtering
         document.getElementById('stat-low-stock').innerText = alerts.length;
 
         // Sales Today
@@ -94,29 +102,142 @@ async function updateDashboardStats() {
         const salesCount = salesData.count || 0;
         document.getElementById('stat-sales-today').innerText = salesCount;
 
-        // Render Alerts List
-        const list = document.getElementById('alerts-list');
-        list.innerHTML = '';
-        if (alerts.length === 0) {
-            list.innerHTML = '<li>Sin alertas activas.</li>';
-        } else {
-            alerts.forEach(a => {
-                const li = document.createElement('li');
-                if (a.type === 'LOW_STOCK') {
-                    li.style.color = 'red';
-                    li.innerText = `STOCK: Producto ${a.nombre} (${a.codigo}) tiene stock ${a.total_stock} (Mín: ${a.stock_minimo})`;
-                } else if (a.type === 'EXPIRING') {
-                    li.style.color = 'orange'; // or DarkOrange
-                    li.innerText = `VENCIMIENTO: Producto ${a.nombre} caduca el ${a.fecha_vencimiento.split('T')[0]}`;
-                }
-                list.appendChild(li);
-            });
-        }
+        renderDashboardAlerts(alerts);
     } catch (e) {
         console.error(e);
     }
 }
 
+function renderDashboardAlerts(alerts) {
+    const container = document.getElementById('alerts-container');
+    container.innerHTML = '';
+
+    if (alerts.length === 0) {
+        container.innerHTML = '<div style="padding:10px;">✅ Sin alertas activas. Todo en orden.</div>';
+    } else {
+        const grid = document.createElement('div');
+        grid.className = 'alert-grid';
+
+        alerts.forEach(a => {
+            const card = document.createElement('div');
+            card.className = 'alert-card';
+
+            let title = 'ALERTA';
+            let headerClass = '';
+            let icon = '⚠️';
+            let text = '';
+
+            if (a.type === 'LOW_STOCK') {
+                title = 'STOCK BAJO';
+                icon = '📉';
+                text = `<strong>${a.nombre}</strong><br>Stock: ${a.total_stock} / Mín: ${a.stock_minimo}`;
+            } else if (a.type === 'EXPIRING') {
+                title = 'VENCIMIENTO';
+                headerClass = 'warning';
+                icon = '📅';
+                text = `<strong>${a.nombre}</strong><br>Vence: ${a.fecha_vencimiento.split('T')[0]}`;
+            }
+
+            card.innerHTML = `
+                <div class="alert-header ${headerClass}">
+                    <span>${title}</span>
+                    <span>${icon}</span>
+                </div>
+                <div class="alert-body">
+                    ${text}
+                    <div style="margin-top:5px; font-size:10px; text-align:right;">Cod: ${a.codigo}</div>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+        container.appendChild(grid);
+    }
+}
+
+function filterDashboardAlerts(type) {
+    if (!window.allAlerts) return;
+
+    if (type === 'all') {
+        renderDashboardAlerts(window.allAlerts);
+    } else {
+        const filtered = window.allAlerts.filter(a => a.type === type);
+        renderDashboardAlerts(filtered);
+    }
+}
+
+// --- Pagination Helpers (V8) ---
+const ITEMS_PER_PAGE = 15;
+const paginationState = {
+    products: 1,
+    inventory: 1,
+    suppliers: 1,
+    reportSales: 1,
+    reportSuppliers: 1
+};
+
+function paginate(items, page) {
+    const start = (page - 1) * ITEMS_PER_PAGE;
+    return items.slice(start, start + ITEMS_PER_PAGE);
+}
+
+function renderPaginationControls(totalItems, currentPage, containerId, onPageChange) {
+    const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let html = `
+        <div class="pagination-controls">
+            <button class="retro-btn page-btn" onclick="${onPageChange}(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>&lt;</button>
+            <span>Página ${currentPage} de ${totalPages}</span>
+            <button class="retro-btn page-btn" onclick="${onPageChange}(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>&gt;</button>
+        </div>
+    `;
+    container.innerHTML = html;
+}
+
+// Global scope wrappers for pagination callbacks
+window.changeProductPage = (p) => { paginationState.products = p; renderProducts(window.currentFilteredProducts || window.allProducts); };
+window.changeInventoryPage = (p) => { paginationState.inventory = p; renderInventory(window.currentFilteredInventory || window.allInventory); };
+window.changeSupplierPage = (p) => { paginationState.suppliers = p; renderSuppliers(window.currentFilteredSuppliers || window.allSuppliers); };
+window.changeReportSalesPage = (p) => { paginationState.reportSales = p; renderSalesTable(window.currentSalesData); };
+window.changeReportSupplierPage = (p) => { paginationState.reportSuppliers = p; renderSupplierReport(window.currentFilteredSupplierReport || window.allMapData); };
+
+
+// --- Modal System (V9) ---
+function openModal(title, contentHtml) {
+    // Check if modal already exists
+    let overlay = document.querySelector('.modal-overlay');
+    if (overlay) overlay.remove();
+
+    overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    overlay.innerHTML = `
+        <div class="modal-window">
+            <div class="title-bar">
+                <div class="title-bar-text">${title}</div>
+                <div class="title-bar-controls">
+                    <button aria-label="Close" onclick="closeModal()">X</button>
+                </div>
+            </div>
+            <div class="modal-body">
+                ${contentHtml}
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+}
+
+function closeModal() {
+    const overlay = document.querySelector('.modal-overlay');
+    if (overlay) overlay.remove();
+}
 
 // --- Products ---
 async function generateProductOptions() {
@@ -143,6 +264,7 @@ async function loadProducts() {
                 <option value="id">ID</option>
                 <option value="name">Nombre</option>
                 <option value="category">Categoría</option>
+                <option value="price">Precio</option>
             </select>
         </div>
         <table>
@@ -160,6 +282,7 @@ async function loadProducts() {
                 <tr><td colspan="${isVendor ? 5 : 6}">Cargando...</td></tr>
             </tbody>
         </table>
+        <div id="products-pagination"></div>
     `;
     document.getElementById('content-area').innerHTML = html;
 
@@ -175,10 +298,16 @@ function renderProducts(products) {
 
     if (products.length === 0) {
         tbody.innerHTML = `<tr><td colspan="${isVendor ? 5 : 6}">No se encontraron productos.</td></tr>`;
+        document.getElementById('products-pagination').innerHTML = '';
         return;
     }
 
-    products.forEach(p => {
+    // Pagination
+    const page = paginationState.products;
+    renderPaginationControls(products.length, page, 'products-pagination', 'changeProductPage');
+    const paginatedItems = paginate(products, page);
+
+    paginatedItems.forEach(p => {
         const tr = document.createElement('tr');
 
         let actionsHtml = '';
@@ -233,6 +362,8 @@ function sortProducts() {
         list.sort((a, b) => a.nombre.localeCompare(b.nombre));
     } else if (type === 'category') {
         list.sort((a, b) => (a.categoria || '').localeCompare(b.categoria || ''));
+    } else if (type === 'price') {
+        list.sort((a, b) => b.precio_venta - a.precio_venta);
     }
 
     renderProducts(list);
@@ -241,7 +372,6 @@ function sortProducts() {
 function showProductForm(product = null) {
     const isEdit = !!product;
     const html = `
-        <h3>${isEdit ? 'Editar Producto' : 'Nuevo Producto'}</h3>
         <form onsubmit="saveProduct(event, ${isEdit})">
             <div class="form-grid">
                 <div class="form-group">
@@ -262,11 +392,15 @@ function showProductForm(product = null) {
                 </div>
                 <div class="form-group">
                     <label>Precio Compra:</label> 
-                    <input type="number" step="0.01" name="precio_compra" value="${product?.precio_compra || ''}">
+                    <input type="number" step="0.01" id="prod-cost" name="precio_compra" value="${product?.precio_compra || ''}" oninput="calcPrice()">
                 </div>
                 <div class="form-group">
-                    <label>Precio Venta:</label> 
-                    <input type="number" step="0.01" name="precio_venta" value="${product?.precio_venta || ''}">
+                    <label>Margen %:</label> 
+                    <input type="number" step="1" id="prod-margin" value="30" oninput="calcPrice()">
+                </div>
+                <div class="form-group">
+                    <label>Precio Venta (Calc):</label> 
+                    <input type="number" step="0.01" id="prod-price" name="precio_venta" value="${product?.precio_venta || ''}" readonly style="background:#eee;">
                 </div>
                 <div class="form-group">
                     <label>Stock Mínimo:</label> 
@@ -277,11 +411,32 @@ function showProductForm(product = null) {
                     <input type="number" name="id_proveedor" value="${product?.id_proveedor || ''}">
                 </div>
             </div>
-            <button type="submit" class="retro-btn">Guardar</button>
-            <button type="button" class="retro-btn" onclick="loadProducts()">Cancelar</button>
+            <div style="margin-top:15px; text-align:right;">
+                <button type="button" class="retro-btn" onclick="closeModal()">Cancelar</button>
+                <button type="submit" class="retro-btn">Guardar</button>
+            </div>
         </form>
     `;
-    document.getElementById('content-area').innerHTML = html;
+    openModal(isEdit ? 'Editar Producto' : 'Nuevo Producto', html);
+
+    // Trigger calc init if edit
+    if (isEdit && product.precio_compra && product.precio_venta) {
+        // Reverse calc margin just for display? Or keep default 30?
+        // Let's just set the price field to update visually
+        // document.getElementById('prod-price').value = product.precio_venta;
+        // Not strictly needed since value="" attribute handles it
+    }
+}
+
+function calcPrice() {
+    const cost = parseFloat(document.getElementById('prod-cost').value) || 0;
+    const margin = parseFloat(document.getElementById('prod-margin').value) || 0;
+    const priceField = document.getElementById('prod-price');
+
+    if (cost > 0) {
+        const salePrice = cost * (1 + (margin / 100));
+        priceField.value = salePrice.toFixed(2);
+    }
 }
 
 async function saveProduct(e, isEdit) {
@@ -298,6 +453,7 @@ async function saveProduct(e, isEdit) {
         body: JSON.stringify(data)
     });
 
+    closeModal();
     loadProducts();
 }
 
@@ -331,11 +487,15 @@ async function loadSuppliers() {
                 <tr><td colspan="5">Cargando...</td></tr>
             </tbody>
         </table>
+        <div id="suppliers-pagination"></div>
     `;
     document.getElementById('content-area').innerHTML = html;
 
+    paginationState.suppliers = 1;
+
     const res = await fetch(`${API_URL}/suppliers`);
     window.allSuppliers = await res.json();
+    window.currentFilteredSuppliers = window.allSuppliers;
     renderSuppliers(window.allSuppliers);
 }
 
@@ -343,7 +503,18 @@ function renderSuppliers(list) {
     const tbody = document.getElementById('suppliers-table-body');
     tbody.innerHTML = '';
 
-    list.forEach(s => {
+    if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5">No se encontraron proveedores.</td></tr>';
+        document.getElementById('suppliers-pagination').innerHTML = '';
+        return;
+    }
+
+    // Pagination
+    const page = paginationState.suppliers;
+    const paginatedItems = paginate(list, page);
+    renderPaginationControls(list.length, page, 'suppliers-pagination', 'changeSupplierPage');
+
+    paginatedItems.forEach(s => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td>${s.id}</td>
@@ -366,13 +537,14 @@ function filterSuppliers() {
         (s.telefono && s.telefono.toLowerCase().includes(term)) ||
         (s.rif && s.rif.toLowerCase().includes(term))
     );
+    paginationState.suppliers = 1;
+    window.currentFilteredSuppliers = filtered;
     renderSuppliers(filtered);
 }
 
 function showSupplierForm(supplier = null) {
     const isEdit = !!supplier;
     const html = `
-        <h3>${isEdit ? 'Editar Proveedor' : 'Nuevo Proveedor'}</h3>
         <form onsubmit="saveSupplier(event, ${isEdit ? supplier.id : 'null'})">
             <div class="form-grid">
                 <div class="form-group">
@@ -396,11 +568,13 @@ function showSupplierForm(supplier = null) {
                     <input type="text" name="direccion" value="${supplier?.direccion || ''}">
                 </div>
             </div>
-            <button type="submit" class="retro-btn">Guardar</button>
-            <button type="button" class="retro-btn" onclick="loadSuppliers()">Cancelar</button>
+            <div style="margin-top:15px; text-align:right;">
+                <button type="button" class="retro-btn" onclick="closeModal()">Cancelar</button>
+                <button type="submit" class="retro-btn">Guardar</button>
+            </div>
         </form>
     `;
-    document.getElementById('content-area').innerHTML = html;
+    openModal(isEdit ? 'Editar Proveedor' : 'Nuevo Proveedor', html);
 }
 
 async function saveSupplier(e, id) {
@@ -417,6 +591,7 @@ async function saveSupplier(e, id) {
         body: JSON.stringify(data)
     });
 
+    closeModal();
     loadSuppliers();
 }
 
@@ -443,6 +618,7 @@ async function loadInventory() {
                 <tr><td colspan="5">Cargando...</td></tr>
              </tbody>
         </table>
+        <div id="inventory-pagination"></div>
     `;
     document.getElementById('content-area').innerHTML = html;
 
@@ -462,12 +638,18 @@ function renderInventory(inv) {
 
     if (inv.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5">No hay inventario o no coincide con la búsqueda.</td></tr>';
+        document.getElementById('inventory-pagination').innerHTML = '';
         return;
     }
 
+    // Pagination
+    const page = paginationState.inventory;
+    renderPaginationControls(inv.length, page, 'inventory-pagination', 'changeInventoryPage');
+    const paginatedItems = paginate(inv, page);
+
     const now = new Date();
 
-    inv.forEach(i => {
+    paginatedItems.forEach(i => {
         const tr = document.createElement('tr');
 
         // Status Logic
@@ -524,7 +706,6 @@ async function showAddInventoryForm() {
     const productOptions = await generateProductOptions();
 
     const html = `
-        <h3>Entrada de Inventario</h3>
         <form onsubmit="addInventory(event)">
              <div class="form-grid">
                 <div class="form-group">
@@ -546,11 +727,13 @@ async function showAddInventoryForm() {
                     <input type="date" name="fecha_vencimiento">
                 </div>
             </div>
-            <button type="submit" class="retro-btn">Guardar</button>
-            <button type="button" class="retro-btn" onclick="loadInventory()">Cancelar</button>
+            <div style="margin-top:15px; text-align:right;">
+                <button type="button" class="retro-btn" onclick="closeModal()">Cancelar</button>
+                <button type="submit" class="retro-btn">Guardar</button>
+            </div>
         </form>
     `;
-    document.getElementById('content-area').innerHTML = html;
+    openModal('Entrada de Inventario', html);
 }
 
 async function addInventory(e) {
@@ -565,6 +748,7 @@ async function addInventory(e) {
         body: JSON.stringify(data)
     });
 
+    closeModal();
     loadInventory();
 }
 
@@ -734,7 +918,36 @@ function loadReports() {
         </div>
     `;
     document.getElementById('content-area').innerHTML = html;
+    document.getElementById('content-area').innerHTML = html;
 }
+
+// --- Chart Helpers (V10) ---
+function getRetroChartConfig(type, data, options = {}) {
+    return {
+        type: type,
+        data: data,
+        options: {
+            animation: { duration: 0 }, // Instant (Retro)
+            responsive: true,
+            maintainAspectRatio: false,
+            elements: {
+                line: { tension: 0 }, // No curves
+                bar: {
+                    borderWidth: 2,
+                    borderColor: '#000',
+                    backgroundColor: '#008080'
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: { font: { family: 'Segoe UI' } }
+                }
+            },
+            ...options
+        }
+    };
+}
+
 
 async function showReport(type) {
     // Update active state
@@ -773,10 +986,30 @@ async function showReport(type) {
     } else if (type === 'suppliers') {
         const res = await fetch(`${API_URL}/reports/suppliers`);
         const data = await res.json();
-        const list = data.productsBySupplier; // Now contains pricing info
+        const list = data.productsBySupplier;
 
-        // Store for filtering
         window.allMapData = list;
+        window.currentFilteredSupplierReport = list;
+
+        // Set up Skeleton
+        container.innerHTML = `
+            <h4>Análisis de Proveedores</h4>
+            <div style="margin-bottom:15px;">
+                <input type="text" id="rep-supplier-search" placeholder="Filtrar por proveedor..." onkeyup="filterSupplierReport()" style="width:100%;">
+            </div>
+            
+            <div style="display:flex; flex-wrap:wrap; gap:20px; margin-bottom: 20px;">
+                <div style="flex:1; min-width:300px; height:250px; border:1px solid #808080; background:#fff; padding:10px;">
+                    <canvas id="suppliersChart"></canvas>
+                </div>
+                <div style="flex:1; min-width:300px;">
+                    <p>Distribución de productos y márgenes.</p>
+                </div>
+            </div>
+
+            <div id="rep-supplier-table-container"></div>
+            <div id="rep-supplier-pagination"></div>
+        `;
 
         renderSupplierReport(list);
     } else if (type === 'prediction') {
@@ -811,14 +1044,85 @@ async function runSalesReport() {
     const res = await fetch(`${API_URL}/reports/sales?start=${start}&end=${end}`);
     const data = await res.json();
 
-    let html = `<h5>Resultados (${data.length} ventas)</h5><table><tr><th>ID</th><th>Fecha</th><th>Total</th><th>Pago</th></tr>`;
+    window.currentSalesData = data;
+    paginationState.reportSales = 1;
+
+    // Layout
+    const html = `
+        <div style="height: 250px; margin-bottom: 20px; border: 1px solid #808080; background: #fff; padding: 10px;">
+            <canvas id="salesChart"></canvas>
+        </div>
+        <h5>Resultados (${data.length} ventas)</h5>
+        <div id="rep-sales-table-container"></div>
+        <div id="rep-sales-pagination"></div>
+        <p style="margin-top:10px;"><strong>Total Período: $<span id="rep-sales-total"></span></strong></p>
+    `;
+    document.getElementById('rep-result').innerHTML = html;
+
+    // Render Chart
+    const salesByDate = {};
     let sum = 0;
     data.forEach(v => {
         sum += v.total;
+        const d = v.fecha_venta.substring(0, 10);
+        salesByDate[d] = (salesByDate[d] || 0) + v.total;
+    });
+
+    document.getElementById('rep-sales-total').innerText = sum.toFixed(2);
+
+    const labels = Object.keys(salesByDate).sort();
+    const values = labels.map(d => salesByDate[d]);
+
+    const ctx = document.getElementById('salesChart').getContext('2d');
+    new Chart(ctx, getRetroChartConfig('bar', {
+        labels: labels,
+        datasets: [{
+            label: 'Ventas ($)',
+            data: values,
+            backgroundColor: '#000080',
+            borderColor: '#000',
+            borderWidth: 1
+        }]
+    }));
+
+    renderSalesTable(data);
+}
+
+function renderSalesTable(data) {
+    const container = document.getElementById('rep-sales-table-container');
+    const ITEMS_PER_PAGE_REP = 10;
+
+    const page = paginationState.reportSales;
+    const start = (page - 1) * ITEMS_PER_PAGE_REP;
+    const paginated = data.slice(start, start + ITEMS_PER_PAGE_REP);
+
+    let html = `<div style="overflow-x: auto;"><table><tr><th>ID</th><th>Fecha</th><th>Total</th><th>Pago</th></tr>`;
+    paginated.forEach(v => {
         html += `<tr><td>${v.id}</td><td>${v.fecha_venta}</td><td>$${v.total}</td><td>${v.tipo_pago}</td></tr>`;
     });
-    html += `</table><p><strong>Total Período: $${sum.toFixed(2)}</strong></p>`;
-    document.getElementById('rep-result').innerHTML = html;
+    html += `</table></div>`;
+    container.innerHTML = html;
+
+    const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE_REP);
+    renderPaginationControls(data.length, page, 'rep-sales-pagination', 'changeReportSalesPage');
+
+    // Manual override for controls if helper doesn't support specific container or callback properly, 
+    // but we added global wrapper 'changeReportSalesPage' so renderPaginationControls should work 
+    // IF we pass 10 as items per page. But existing helper uses global ITEMS_PER_PAGE (15).
+    // so we need manual controls here or update helper. 
+    // Let's implement manual controls here to be safe and specific.
+    const pContainer = document.getElementById('rep-sales-pagination');
+    if (totalPages > 1) {
+        pContainer.innerHTML = `
+            <div class="pagination-controls">
+                <button class="retro-btn page-btn" onclick="changeReportSalesPage(${page - 1})" ${page === 1 ? 'disabled' : ''}>&lt;</button>
+                <span>Página ${page} de ${totalPages}</span>
+                <button class="retro-btn page-btn" onclick="changeReportSalesPage(${page + 1})" ${page === totalPages ? 'disabled' : ''}>&gt;</button>
+            </div>
+        `;
+    } else {
+        pContainer.innerHTML = '';
+    }
 }
 
 async function runComparisonReport() {
@@ -856,14 +1160,59 @@ async function runComparisonReport() {
 }
 
 function renderSupplierReport(list) {
-    const container = document.getElementById('report-content');
+    if (!list) return;
 
-    let html = `
-        <h4>Análisis de Proveedores</h4>
-        <div style="margin-bottom:15px;">
-            <input type="text" id="rep-supplier-search" placeholder="Filtrar por proveedor..." onkeyup="filterSupplierReport()" style="width:100%;">
-        </div>
-        <table id="rep-supplier-table">
+    // Chart Logic
+    const supplierCounts = {};
+    list.forEach(item => {
+        const s = item.proveedor;
+        supplierCounts[s] = (supplierCounts[s] || 0) + 1;
+    });
+
+    const labels = Object.keys(supplierCounts);
+    const data = Object.values(supplierCounts);
+    const retroColors = ['#008080', '#000080', '#800000', '#808000', '#800080', '#008000', '#C0C0C0', '#808080'];
+
+    // Draw Chart
+    const canvas = document.getElementById('suppliersChart');
+    if (canvas) {
+        if (window.currentSupplierChart) window.currentSupplierChart.destroy();
+        const ctx = canvas.getContext('2d');
+        window.currentSupplierChart = new Chart(ctx, getRetroChartConfig('pie', {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: labels.map((_, i) => retroColors[i % retroColors.length]),
+                borderColor: '#000',
+                borderWidth: 1
+            }]
+        }, {
+            layout: {
+                padding: { right: 20 }
+            },
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        font: { family: 'Segoe UI', size: 10 },
+                        boxWidth: 12,
+                        padding: 10
+                    }
+                }
+            }
+        }));
+    }
+
+    // Pagination Logic (10 items)
+    const ITEMS_PER_PAGE_REP = 10;
+    const page = paginationState.reportSuppliers;
+    const start = (page - 1) * ITEMS_PER_PAGE_REP;
+    const paginated = list.slice(start, start + ITEMS_PER_PAGE_REP);
+
+    // Table Render Logic
+    let tableHtml = `
+        <div style="overflow-x: auto;">
+        <table id="rep-supplier-table" style="margin-top:20px;">
             <thead>
                 <tr>
                     <th>Proveedor</th>
@@ -877,26 +1226,47 @@ function renderSupplierReport(list) {
     `;
 
     if (list.length === 0) {
-        html += `<tr><td colspan="5">No hay datos.</td></tr>`;
+        tableHtml += `<tr><td colspan="5">No hay datos.</td></tr>`;
     } else {
-        list.forEach(i => {
+        paginated.forEach(i => {
             let margin = 0;
-            if (i.precio_venta && i.precio_compra) {
-                margin = ((i.precio_venta - i.precio_compra) / i.precio_venta) * 100;
+            if (i.precio_compra && i.precio_compra > 0) {
+                margin = ((i.precio_venta - i.precio_compra) / i.precio_compra) * 100;
             }
-
-            html += `<tr>
-                <td><strong>${i.proveedor}</strong></td>
-                <td>${i.producto} (${i.codigo})</td>
-                <td>$${i.precio_compra || 0}</td>
-                <td>$${i.precio_venta || 0}</td>
-                <td>${margin.toFixed(1)}%</td>
-           </tr>`;
+            tableHtml += `
+                <tr class="supplier-row">
+                    <td>${i.proveedor}</td>
+                    <td>${i.producto} (${i.codigo})</td>
+                    <td>$${i.precio_compra || 0}</td>
+                    <td>$${i.precio_venta || 0}</td>
+                    <td>${margin.toFixed(1)}%</td>
+                </tr>
+            `;
         });
     }
+    tableHtml += '</tbody></table></div>';
 
-    html += `</tbody></table>`;
-    container.innerHTML = html;
+    // Insert ONLY into table container, avoiding duplication
+    const tableContainer = document.getElementById('rep-supplier-table-container');
+    if (tableContainer) tableContainer.innerHTML = tableHtml;
+
+    // Pagination Controls
+    const totalPages = Math.ceil(list.length / ITEMS_PER_PAGE_REP);
+    const pContainer = document.getElementById('rep-supplier-pagination');
+
+    if (pContainer) {
+        if (totalPages > 1) {
+            pContainer.innerHTML = `
+                <div class="pagination-controls">
+                    <button class="retro-btn page-btn" onclick="changeReportSupplierPage(${page - 1})" ${page === 1 ? 'disabled' : ''}>&lt;</button>
+                    <span>Página ${page} de ${totalPages}</span>
+                    <button class="retro-btn page-btn" onclick="changeReportSupplierPage(${page + 1})" ${page === totalPages ? 'disabled' : ''}>&gt;</button>
+                </div>
+            `;
+        } else {
+            pContainer.innerHTML = '';
+        }
+    }
 }
 
 function filterSupplierReport() {
@@ -905,14 +1275,15 @@ function filterSupplierReport() {
         i.proveedor.toLowerCase().includes(term) ||
         i.producto.toLowerCase().includes(term)
     );
-    // Optimization: Just re-render table body would be faster, but re-calling full render is easier
+    paginationState.reportSuppliers = 1;
+    window.currentFilteredSupplierReport = filtered;
     renderSupplierReport(filtered);
 }
 
 function loadHelp() {
     const html = `
         <h3>Ayuda del Sistema</h3>
-        <p>Bienvenido al Sistema de Inventario v5.0.</p>
+        <p>Bienvenido a StockMaster 2000 v1.0.</p>
         <ul>
             <li><strong>Dashboard:</strong> Vista general de alertas (Stock bajo y Vencimientos).</li>
             <li><strong>Productos:</strong> Gestión de catálogo.</li>

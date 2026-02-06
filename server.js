@@ -30,6 +30,18 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', version: '0.0.1' });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
+});
+
+server.on('error', (e) => {
+    console.error('SERVER ERROR:', e);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION:', err);
+});
+
+process.on('unhandledRejection', (reason, p) => {
+    console.error('UNHANDLED REJECTION:', reason);
 });
