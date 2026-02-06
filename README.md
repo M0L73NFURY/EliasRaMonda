@@ -1,71 +1,90 @@
-# Sistema de Inventario Retro (v5.0)
+# StockMaster 2000 💾
 
-Un sistema de gestión de inventario completo con una estética retro de Windows 98, diseñado para pequeñas y medianas empresas. Esta versión incluye análisis avanzado de datos, gestión de lotes y predicción de stock.
+> **Sistema de Gestión de Inventario Profesional con Estética Retro (Y2K Compliant)**
 
-## 📋 Características
+Un sistema de gestión de inventario robusto y completo, diseñado con una nostálgica interfaz estilo Windows 98/2000. StockMaster 2000 combina la simplicidad del pasado con la potencia del presente: análisis de datos, gráficos dinámicos, gestión de lotes FEFO y predicción de stock.
 
-- **Gestión de Productos**: Alta, baja y modificación de productos.
-- **Control de Inventario Detallado**: 
-    - Rastreo por lotes y fechas de vencimiento.
-    - Alertas visuales de caducidad (Semáforo: Amarillo/Naranja/Rojo).
-    - Entradas de stock granulares.
-- **Punto de Venta (POS)**: 
-    - Descuento de stock inteligente basado en **FEFO** (First-Expired, First-Out).
-    - Prioriza automáticamente la venta de productos próximos a vencer.
-- **Módulo de Reportes Avanzados**:
-    - **Ventas**: Reportes por rango de fechas.
-    - **Comparativas**: Análisis de crecimiento entre dos periodos.
-    - **Proveedores**: Historial de mejores precios y productos por proveedor.
-    - **Predicción (s,S)**: Algoritmo de reabastecimiento que sugiere cantidades de compra basadas en demanda histórica.
-- **Gestión de Proveedores**: Base de datos de contacto de proveedores.
-- **Dashboard en Tiempo Real**: Visualización de alertas de stock bajo, vencimientos y métricas diarias.
-- **Estética Retro**: Interfaz icónica estilo 90s con respuesta visual activa (botones 3D).
+![StockMaster 2000 Logo](https://img.shields.io/badge/StockMaster-2000-blue?style=for-the-badge&logo=windows95)
 
-## 🚀 Requisitos de Instalación
+## 📋 Características Principales
 
-Para ejecutar este sistema en cualquier computador, necesitas tener instalado:
+### 📦 Gestión de Inventario & Ventas
+- **Punto de Venta Inteligente**: Descuento automático de stock basado en **FEFO** (First-Expired, First-Out), priorizando lotes próximos a vencer.
+- **Control por Lotes**: Seguimiento detallado de fechas de vencimiento y lotes individuales.
+- **Alertas en Tiempo Real**: Semáforo visual para productos por vencer (🟡/🟠/🔴) y alertas de stock bajo.
+- **Paginación Global**: Listas optimizadas con paginación de 10 elementos para Productos, Inventario y Reportes.
+- **Ordenamiento**: Capacidad de ordenar productos por Nombre, Categoría y Precio.
 
-1.  **Node.js**: (Versión 14 o superior). Descárgalo en [nodejs.org](https://nodejs.org/).
+### 📊 Reportes Avanzados v10.0
+- **Gráficos Integrados**: 
+    - 📊 Barras: Tendencia diaria de ventas.
+    - 🍰 Pastel: Distribución de productos por proveedor.
+- **Análisis de Márgenes**: Cálculo automático de márgenes de ganancia por proveedor.
+- **Historial de Compras**: Registro detallado de adquisiciones y evolución de precios.
 
-## 🛠️ Instalación y Uso
+### 🖥️ Interfaz & Usabilidad (UI/UX)
+- **Estética "Enterprise 99"**: Botones con relieve 3D, ventanas grises clásicas y fuentes de sistema.
+- **Dashboard Interactivo**: Panel de control con métricas clave y **Filtros de Alertas** (Ver Todo, Solo Stock, Solo Vencimientos).
+- **Ventanas Modales**: Formularios flotantes estilo pop-up para una experiencia "multitarea".
+- **Responsive**: Ajuste automático de tablas con scroll horizontal/vertical.
 
-Sigue estos pasos para instalar y correr el programa:
+---
 
-1.  **Descargar el código**: Copia la carpeta del proyecto a tu computador.
-2.  **Abrir la terminal**: Navega hasta la carpeta del proyecto.
-3.  **Instalar dependencias**:
-    Ejecuta el siguiente comando para descargar las librerías necesarias:
+## 🚀 Instalación y Puesta en Marcha
+
+### Requisitos previos
+*   **Node.js** (v14 o superior)
+*   **NPM** (incluido con Node)
+
+### Pasos de Instalación
+
+1.  **Clonar el repositorio**:
+    ```bash
+    git clone https://github.com/tu-usuario/stockmaster-2000.git
+    cd stockmaster-2000
+    ```
+
+2.  **Instalar dependencias**:
     ```bash
     npm install
     ```
-    *(Esto instalará `express`, `better-sqlite3`, `cors`, y `body-parser`)*.
 
-4.  **Iniciar el Sistema**:
-    Ejecuta:
+3.  **Generar Datos de Prueba (Opcional)**:
+    Para poblar la base de datos con 50+ proveedores, productos y ventas de prueba:
+    ```bash
+    node seed_data.js
+    ```
+
+4.  **Iniciar el Servidor**:
     ```bash
     node server.js
     ```
-    Verás un mensaje como: `Server running at http://localhost:3001`
+    > El sistema iniciará en: `http://localhost:3001`
 
-5.  **Abrir en el Navegador**:
-    Ve a tu navegador web y entra a:
-    `http://localhost:3001`
+---
 
-## 📦 Estructura del Proyecto
+## 📦 Estructura del Sistema
 
-- `server.js`: El servidor principal Express.
-- `database.js`: Configuración de la base de datos (SQLite) y schemas.
-- `public/`: 
-    - `app.js`: Lógica del frontend (SPA).
-    - `style.css`: Estilos retro.
-    - `index.html`: Punto de entrada.
-- `routes/`: Endpoints de la API:
-    - `inventory.js`: Lógica de stock y alertas.
-    - `sales.js`: Procesamiento de ventas y lógica FEFO.
-    - `products.js`: CRUD de productos.
-    - `suppliers.js`: CRUD de proveedores.
-    - `reports.js`: Analíticas y predicciones.
+```text
+/
+├── public/              # Frontend (Single Page Application)
+│   ├── app.js           # Lógica del cliente, gráficos y paginación
+│   ├── style.css        # Hoja de estilos "Windows 98"
+│   └── index.html       # Punto de entrada
+├── routes/              # API REST (Backend)
+│   ├── inventory.js     # Lógica de stock y alertas
+│   ├── sales.js         # Procesamiento de ventas (FEFO)
+│   ├── reports.js       # Endpoints para gráficos y análisis
+│   └── ...
+├── database.js          # Configuración SQLite
+├── seed_data.js         # Script de población de datos
+└── server.js            # Servidor Express
+```
 
-## 🆘 Soporte
+## 🤝 Contribución
 
-Si encuentras algún error o necesitas ayuda, consulta la sección "Ayuda" dentro de la aplicación.
+¡Las contribuciones son bienvenidas! Si encuentras un bug o quieres añadir una feature (quizás soporte para Fax?), abre un Issue o Pull Request.
+
+---
+*Developed with ❤️ by Antigravity using Node.js & SQLite.*
+*© 1999-2026 StockMaster Systems.*
